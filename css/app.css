@@ -1,0 +1,178 @@
+/* Helio — Cycle 1 minimal TV styling. Dark, 10-foot UI, D-pad focus highlight. */
+:root {
+  --bg: #0b0e14;
+  --bg-elev: #151a23;
+  --bg-elev-2: #1d2430;
+  --text: #f3f6fb;
+  --text-dim: #9aa6b8;
+  --accent: #5cc8ff;
+  --accent-ink: #04141f;
+  --danger: #ff6b6b;
+  --radius: 12px;
+  --gap: 20px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 1280px;
+  min-height: 720px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { width: 1280px; min-height: 720px; }
+
+.screen {
+  width: 1280px;
+  min-height: 720px;
+  padding: 32px 48px 48px;
+}
+
+/* ---------- Focus model: the input engine toggles .focused ---------- */
+.focusable {
+  outline: none;
+  transition: transform .08s ease, box-shadow .08s ease, background .08s ease;
+  cursor: pointer;
+}
+.focusable.focused {
+  box-shadow: 0 0 0 3px var(--accent), 0 8px 28px rgba(0,0,0,.5);
+  transform: scale(1.04);
+  z-index: 2;
+}
+
+/* ---------- Buttons / inputs ---------- */
+.btn {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: none;
+  border-radius: var(--radius);
+  padding: 12px 20px;
+  font-size: 18px;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.addon-input {
+  flex: 1;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid #2b3340;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 18px;
+}
+.addon-input:focus { border-color: var(--accent); }
+
+/* ---------- Home ---------- */
+.topbar { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; }
+.logo {
+  margin: 0; font-size: 34px; font-weight: 800; letter-spacing: .5px;
+  background: linear-gradient(90deg, #5cc8ff, #b78cff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.addbar { display: flex; gap: 12px; flex: 1; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; min-height: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bg-elev); border-radius: 999px; padding: 6px 8px 6px 14px;
+  font-size: 15px; color: var(--text-dim);
+}
+.chip-error { color: var(--danger); }
+.chip-remove { background: var(--bg-elev-2); color: var(--text); border: none; border-radius: 999px; width: 26px; height: 26px; font-size: 14px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.tab { background: var(--bg-elev); color: var(--text-dim); border: none; border-radius: 999px; padding: 8px 18px; font-size: 16px; }
+.tab.active { background: var(--bg-elev-2); color: var(--text); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--gap);
+}
+.card {
+  display: flex; flex-direction: column; gap: 8px;
+  background: transparent; border: none; padding: 0; text-align: left;
+}
+.poster {
+  width: 100%; aspect-ratio: 2 / 3; object-fit: cover;
+  border-radius: var(--radius); background: var(--bg-elev-2); display: block;
+}
+.poster-empty { display: flex; }
+.card-title { font-size: 15px; color: var(--text); line-height: 1.25; max-height: 2.5em; overflow: hidden; }
+
+.status { margin-top: 18px; color: var(--text-dim); font-size: 16px; }
+
+/* ---------- Detail ---------- */
+.detail-screen { position: relative; }
+.detail-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center top;
+  opacity: .18; filter: saturate(1.1);
+}
+.detail-content { position: relative; max-width: 880px; }
+.detail-title { font-size: 40px; margin: 8px 0 10px; }
+.detail-meta { color: var(--text-dim); font-size: 17px; margin-bottom: 16px; }
+.detail-desc { font-size: 18px; line-height: 1.5; color: #d7deea; margin-bottom: 24px; }
+.detail-actions { display: flex; gap: 12px; margin-bottom: 28px; }
+
+.eps-title { font-size: 22px; margin: 8px 0 14px; }
+.eps-list { display: flex; flex-direction: column; gap: 10px; max-width: 820px; }
+.ep {
+  text-align: left; background: var(--bg-elev); color: var(--text);
+  border: none; border-radius: var(--radius); padding: 14px 18px; font-size: 17px;
+}
+
+/* ---------- Streams ---------- */
+.streams-title { font-size: 30px; margin: 4px 0 22px; }
+.streams-list { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
+.stream-group { color: var(--text-dim); font-size: 14px; text-transform: uppercase; letter-spacing: .6px; margin: 16px 0 2px; }
+.stream-group:first-child { margin-top: 0; }
+.stream-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--bg-elev); color: var(--text); border: none;
+  border-radius: var(--radius); padding: 16px 20px; font-size: 17px; text-align: left;
+}
+.stream-tag { font-size: 13px; color: var(--accent-ink); background: var(--text-dim); border-radius: 6px; padding: 2px 8px; }
+
+/* ---------- Player ---------- */
+/* Fixed + viewport-sized so it fills the whole window/screen, regardless of the
+   1280px design width used elsewhere. Pairs with the Fullscreen API for desktop. */
+.player-screen { padding: 0; background: #000; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+.player-video { width: 100%; height: 100%; background: #000; display: block; object-fit: contain; }
+
+.player-controls {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 28px 48px 30px;
+  background: linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,0));
+  opacity: 0; transform: translateY(10px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: none;
+}
+/* Re-enable interaction only while the bar is shown, so clicks land on buttons. */
+.player-controls.visible { opacity: 1; transform: none; pointer-events: auto; }
+.pc-progress { height: 6px; background: rgba(255,255,255,.25); border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+.pc-fill { height: 100%; width: 0%; background: var(--accent); }
+
+.pc-buttons { display: flex; align-items: center; justify-content: center; gap: 40px; margin-bottom: 14px; }
+.pc-btn {
+  background: rgba(255,255,255,.14); color: var(--text); border: none;
+  border-radius: 14px; cursor: pointer; line-height: 1;
+  transition: transform .08s ease, background .12s ease;
+}
+.pc-btn:hover { background: rgba(255,255,255,.28); }
+.pc-btn:active { transform: scale(.95); }
+.pc-seek { font-size: 22px; padding: 18px 30px; min-width: 132px; }
+.pc-play { font-size: 28px; padding: 16px 30px; min-width: 96px; }
+
+.pc-meta { text-align: center; color: var(--text-dim); font-size: 16px; font-variant-numeric: tabular-nums; }
+
+.player-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  background: rgba(0,0,0,.7); color: var(--text); padding: 10px 18px;
+  border-radius: 999px; font-size: 16px;
+}
+.player-hint.hidden { display: none; }

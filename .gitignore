@@ -1,0 +1,10 @@
+# Dependencies (none yet — Cycle 1 is zero-dependency — but future-proof)
+node_modules/
+
+# Local dev/preview tooling (machine-specific absolute paths)
+.claude/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
