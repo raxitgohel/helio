@@ -1,7 +1,7 @@
 // Detail: show meta for one title. Movies get a "Find streams" action;
 // series get an episode list (from meta.videos), each leading to streams.
 import { Router } from "../main.js";
-import { Stremio } from "../stremio.js";
+import { Addons } from "../addons.js";
 import { StreamsScreen } from "./streams.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
@@ -32,7 +32,7 @@ export async function DetailScreen({ addon, type, id, name }) {
 
   async function load() {
     try {
-      const meta = await Stremio.meta(addon.baseUrl, type, id);
+      const meta = await Addons.meta(addon.baseUrl, type, id);
       titleEl.textContent = meta.name;
       if (meta.background) bg.style.backgroundImage = `url("${meta.background}")`;
       metaEl.textContent = [meta.releaseInfo, (meta.genres || []).slice(0, 3).join(", ")]

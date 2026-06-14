@@ -21,11 +21,14 @@ the TizenBrew wrapper.
 ES modules need to be served over HTTP (not opened as a `file://`). From this folder:
 
 ```sh
-npx serve .
-# or:  python -m http.server 8080
+python scripts/devserver.py 8137 .
 ```
 
-Then open the printed URL (e.g. http://localhost:3000) in a desktop browser.
+Then open http://localhost:8137 in a desktop browser.
+
+`devserver.py` is a tiny static server that sends `Cache-Control: no-store`, so every
+reload picks up your latest code. (Plain `python -m http.server` caches ES modules and
+will serve **stale JS** on reload — if you use it, you must hard-refresh with Ctrl+Shift+R.)
 
 ### Try the loop
 1. Paste a Stremio addon manifest URL into the box and press Enter. For a quick test, Cinemeta
@@ -45,7 +48,7 @@ js/main.js            bootstrap + screen-stack router
 js/platform.js        platform detect, capabilities, key normalization
 js/input.js           centralized D-pad spatial navigation
 js/store.js           profile-namespaced localStorage
-js/stremio.js         Stremio addon client (manifest/catalog/meta/stream)
+js/addons.js          addon client — Stremio protocol (manifest/catalog/meta/stream)
 js/player.js          engine interface (native only) + player screen
 js/screens/home.js    addon management + catalog grid
 js/screens/detail.js  meta + episodes

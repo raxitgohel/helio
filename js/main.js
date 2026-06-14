@@ -1,4 +1,6 @@
-// Bootstrap + a minimal screen-stack router. A "screen" is an object:
+// Bootstrap + a screen-stack router wired into browser history, so "back" is
+// consistent across the browser Back button, desktop Escape, and (later) the
+// TV remote's Back key. A "screen" is an object:
 //   { el, onEnter?(), onKeyDown?(k)->bool, onBack?()->bool, destroy?() }
 // Screens are produced by async factories so they can do setup before mount.
 
@@ -11,23 +13,37 @@ const stack = [];
 
 export const Router = {
   current() { return stack[stack.length - 1] || null; },
+  depth() { return stack.length; },
 
-  async push(factory, params = {}) {
+  async push(factory, params = {}, { root = false } = {}) {
     const screen = await factory(params);
     stack.push(screen);
-    this._render(screen);
+    // Root screen replaces the current entry; deeper screens add one. Each push
+    // = one history entry, so one "back" = one screen pop.
+    if (root) history.replaceState({ helioDepth: stack.length }, "");
+    else history.pushState({ helioDepth: stack.length }, "");
+    this._mount(screen);
     return screen;
   },
 
+  // Request back (Escape / remote / programmatic). Routed through history so the
+  // browser Back button and the hardware Back key share one code path (popstate).
   back() {
     if (stack.length <= 1) return false;
-    const leaving = stack.pop();
-    if (leaving && leaving.destroy) leaving.destroy();
-    this._render(this.current());
+    history.back();
     return true;
   },
 
-  _render(screen) {
+  // Pop one screen WITHOUT touching history — only called in response to popstate.
+  _popInternal() {
+    if (stack.length <= 1) return false;
+    const leaving = stack.pop();
+    if (leaving && leaving.destroy) leaving.destroy();
+    this._mount(this.current());
+    return true;
+  },
+
+  _mount(screen) {
     appEl.innerHTML = "";
     if (!screen) return;
     appEl.appendChild(screen.el);
@@ -36,6 +52,20 @@ export const Router = {
   },
 };
 
+// A single back code path: both the browser Back button and Router.back()
+// (Escape/remote) trigger popstate; here we pop one screen, or absorb the back
+// at the root so we never accidentally navigate out of the app.
+window.addEventListener("popstate", () => {
+  if (stack.length > 1) {
+    Router._popInternal();
+  } else {
+    history.pushState({ helioDepth: 1 }, ""); // re-arm: stay in the app at root
+  }
+});
+
 Platform.init();
 Input.init(Router);
-Router.push(HomeScreen);
+// Seed two entries so the very first Back is catchable (lands on our own state).
+history.replaceState({ helioDepth: 0 }, "");
+history.pushState({ helioDepth: 1 }, "");
+Router.push(HomeScreen, {}, { root: true });

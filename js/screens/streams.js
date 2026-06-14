@@ -1,7 +1,7 @@
 // Streams: gather streams for a title/episode from ALL installed addons that
 // support `stream` for this type, grouped by addon, then launch the player.
 import { Router } from "../main.js";
-import { Stremio } from "../stremio.js";
+import { Addons } from "../addons.js";
 import { PlayerScreen } from "../player.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
@@ -23,7 +23,7 @@ export async function StreamsScreen({ type, videoId, title }) {
   async function load() {
     status.textContent = "Finding streams across your addons…";
     try {
-      const groups = await Stremio.streamsFromAll(type, videoId);
+      const groups = await Addons.streamsFromAll(type, videoId);
       const total = groups.reduce((n, g) => n + g.streams.length, 0);
       status.textContent = total ? "" : "No streams found in any installed addon for this title.";
 

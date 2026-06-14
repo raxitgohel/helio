@@ -1,6 +1,7 @@
-// Stremio addon client — the core of Helio. URL shapes and manifest parsing
-// follow the Stremio Addon protocol (cross-checked against Nuvio's
-// addon/catalog/meta/stream repositories). Ships EMPTY: no bundled addons.
+// Helio's own addon client (no Stremio dependency). It speaks the open
+// Stremio Addon *protocol* — predictable HTTP endpoints (manifest/catalog/
+// meta/stream) — so any compatible addon works when a user pastes its URL.
+// Ships EMPTY: no bundled addons.
 
 import { Store } from "./store.js";
 
@@ -19,13 +20,21 @@ function canonicalize(url) {
 // Stremio encodes path segments but keeps it URL-safe; matches Nuvio's encoder.
 const enc = (v) => encodeURIComponent(String(v || "")).replace(/\+/g, "%20");
 
+// A catalog supports search if its `extra` advertises a "search" param
+// (or the legacy `extraSupported` array does).
+function catalogSupportsSearch(c) {
+  if (Array.isArray(c.extra)) return c.extra.some((e) => e && e.name === "search");
+  if (Array.isArray(c.extraSupported)) return c.extraSupported.includes("search");
+  return false;
+}
+
 async function getJson(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-export const Stremio = {
+export const Addons = {
   // ----- installed addon list (per profile) -----
   list() { return Store.get(ADDONS_KEY, []); },
 
@@ -63,6 +72,7 @@ export const Stremio = {
         id: c.id,
         name: c.name || c.id,
         type: c.type,
+        searchable: catalogSupportsSearch(c),
       })),
       resources: (m.resources || []).map((r) =>
         typeof r === "string"
@@ -83,6 +93,16 @@ export const Stremio = {
     const url = skip > 0
       ? `${b}/catalog/${type}/${id}/skip=${skip}.json`
       : `${b}/catalog/${type}/${id}.json`;
+    return this._fetchCatalog(url, type);
+  },
+
+  async catalogSearch(base, type, id, query) {
+    const b = canonicalize(base);
+    const url = `${b}/catalog/${type}/${id}/search=${enc(query)}.json`;
+    return this._fetchCatalog(url, type);
+  },
+
+  async _fetchCatalog(url, type) {
     const data = await getJson(url);
     return (data.metas || []).map((m) => ({
       id: m.id,
@@ -92,6 +112,37 @@ export const Stremio = {
       description: m.description || "",
       releaseInfo: m.releaseInfo || "",
     }));
+  },
+
+  // Search every installed addon's searchable catalogs (one per type per addon),
+  // in parallel, and merge de-duped results. Each result carries `addonBaseUrl`
+  // so the detail screen knows where to fetch full metadata from.
+  async search(query, { type = null } = {}) {
+    const q = String(query || "").trim();
+    if (!q) return [];
+    const urls = this.list();
+    const seen = new Set();
+    const out = [];
+    await Promise.all(urls.map(async (url) => {
+      try {
+        const m = await this.manifest(url);
+        const byType = new Map(); // first searchable catalog per type
+        for (const c of m.catalogs) {
+          if (!c.searchable) continue;
+          if (type && c.type !== type) continue;
+          if (!byType.has(c.type)) byType.set(c.type, c);
+        }
+        const lists = await Promise.all([...byType.values()].map((c) =>
+          this.catalogSearch(m.baseUrl, c.type, c.id, q).catch(() => [])));
+        lists.flat().forEach((meta) => {
+          const key = `${meta.type}:${meta.id}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push({ ...meta, addonBaseUrl: m.baseUrl });
+        });
+      } catch (_) { /* skip unreachable addon */ }
+    }));
+    return out;
   },
 
   async meta(base, type, id) {

@@ -1,7 +1,8 @@
 // Home: add/remove Stremio addons + browse their catalogs as a poster grid.
 import { Router } from "../main.js";
-import { Stremio } from "../stremio.js";
+import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
+import { SearchScreen } from "./search.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -17,6 +18,7 @@ export async function HomeScreen() {
           placeholder="Paste a Stremio addon URL (…/manifest.json) and press Enter" />
         <button id="add-btn" class="focusable btn">Add</button>
       </div>
+      <button id="search-btn" class="focusable btn">🔍 Search</button>
     </header>
     <div id="chips" class="chips"></div>
     <div id="tabs" class="tabs"></div>
@@ -41,7 +43,7 @@ export async function HomeScreen() {
     chips.innerHTML = ""; tabs.innerHTML = ""; grid.innerHTML = "";
     catalogEntries = [];
 
-    const urls = Stremio.list();
+    const urls = Addons.list();
     if (urls.length === 0) {
       setStatus("No addons yet. Paste an addon manifest URL above to begin — Helio ships empty by design.");
       return;
@@ -51,7 +53,7 @@ export async function HomeScreen() {
     const manifests = [];
     for (const url of urls) {
       try {
-        const m = await Stremio.manifest(url);
+        const m = await Addons.manifest(url);
         manifests.push(m);
         const chip = document.createElement("div");
         chip.className = "chip";
@@ -60,7 +62,7 @@ export async function HomeScreen() {
         rm.className = "focusable chip-remove";
         rm.textContent = "✕";
         rm.title = `Remove ${m.name}`;
-        rm.onclick = () => { Stremio.remove(m.baseUrl); loadAddons(); };
+        rm.onclick = () => { Addons.remove(m.baseUrl); loadAddons(); };
         chip.appendChild(rm);
         chips.appendChild(chip);
       } catch (e) {
@@ -101,7 +103,7 @@ export async function HomeScreen() {
     grid.innerHTML = "";
     setStatus(`Loading ${entry.catalog.name}…`);
     try {
-      const metas = await Stremio.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
+      const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
       setStatus(metas.length ? "" : "Empty catalog.");
       metas.forEach((meta) => {
         const card = document.createElement("button");
@@ -127,11 +129,12 @@ export async function HomeScreen() {
   function submitAdd() {
     const value = input.value.trim();
     if (!value) return;
-    if (Stremio.add(value)) { input.value = ""; loadAddons(); }
+    if (Addons.add(value)) { input.value = ""; loadAddons(); }
     else setStatus("That addon is already installed, or the URL is invalid.");
   }
 
   addBtn.onclick = submitAdd;
+  el.querySelector("#search-btn").onclick = () => Router.push(SearchScreen);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); submitAdd(); input.blur(); }
   });
