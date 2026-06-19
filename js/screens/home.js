@@ -1,11 +1,21 @@
-// Home: add/remove Stremio addons + browse their catalogs as a poster grid.
+// Home: a scrolling "board" of catalog sections. Each installed catalog renders
+// a labeled section with a preview slice of posters + a "See all" into the full
+// (paginated) catalog. A type filter (All / Movies / Series) narrows the board.
 import { Router } from "../main.js";
 import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
 import { SearchScreen } from "./search.js";
+import { CatalogScreen } from "./catalog.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const PREVIEW_COUNT = 12;
+const TYPE_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "movie", label: "Movies" },
+  { id: "series", label: "Series" },
+];
 
 export async function HomeScreen() {
   const el = document.createElement("div");
@@ -21,26 +31,91 @@ export async function HomeScreen() {
       <button id="search-btn" class="focusable btn">🔍 Search</button>
     </header>
     <div id="chips" class="chips"></div>
-    <div id="tabs" class="tabs"></div>
-    <div id="grid" class="grid"></div>
+    <div id="filters" class="filters"></div>
+    <div id="board" class="board"></div>
     <div id="status" class="status"></div>
   `;
 
   const input = el.querySelector("#addon-url");
   const addBtn = el.querySelector("#add-btn");
   const chips = el.querySelector("#chips");
-  const tabs = el.querySelector("#tabs");
-  const grid = el.querySelector("#grid");
+  const filters = el.querySelector("#filters");
+  const board = el.querySelector("#board");
   const status = el.querySelector("#status");
 
-  let catalogEntries = []; // flat list of { addon, catalog }
-  let activeIndex = 0;
+  let catalogEntries = []; // [{ addon, catalog }]
+  let activeType = "all";
   let loaded = false;
 
   const setStatus = (t) => { status.textContent = t || ""; };
 
+  function makeCard(meta, entry) {
+    const card = document.createElement("button");
+    card.className = "focusable card";
+    card.innerHTML = meta.poster
+      ? `<img class="poster" src="${meta.poster}" alt="" loading="lazy" />
+         <span class="card-title">${escapeHtml(meta.name)}</span>`
+      : `<span class="poster poster-empty"></span>
+         <span class="card-title">${escapeHtml(meta.name)}</span>`;
+    card.onclick = () => Router.push(DetailScreen, {
+      addon: entry.addon,
+      type: meta.type || entry.catalog.type,
+      id: meta.id,
+      name: meta.name,
+    });
+    return card;
+  }
+
+  async function renderSection(entry) {
+    const section = document.createElement("section");
+    section.className = "board-section";
+    const head = document.createElement("div");
+    head.className = "section-head";
+    const title = document.createElement("h3");
+    title.className = "section-title";
+    title.textContent = `${entry.addon.name} · ${entry.catalog.name}`;
+    const seeAll = document.createElement("button");
+    seeAll.className = "focusable see-all";
+    seeAll.textContent = "See all ›";
+    seeAll.onclick = () => Router.push(CatalogScreen, { addon: entry.addon, catalog: entry.catalog });
+    head.appendChild(title);
+    head.appendChild(seeAll);
+    const grid = document.createElement("div");
+    grid.className = "grid section-grid";
+    section.appendChild(head);
+    section.appendChild(grid);
+    board.appendChild(section);
+
+    try {
+      const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
+      const slice = metas.slice(0, PREVIEW_COUNT);
+      if (slice.length === 0) { section.remove(); return; } // hide empty catalogs
+      slice.forEach((meta) => grid.appendChild(makeCard(meta, entry)));
+    } catch (e) {
+      section.remove(); // hide unreachable catalogs
+    }
+  }
+
+  function renderBoard() {
+    board.innerHTML = "";
+    const shown = catalogEntries.filter((e) => activeType === "all" || e.catalog.type === activeType);
+    shown.forEach((entry) => renderSection(entry));
+  }
+
+  function renderFilters() {
+    filters.innerHTML = "";
+    const present = new Set(catalogEntries.map((e) => e.catalog.type));
+    TYPE_FILTERS.filter((f) => f.id === "all" || present.has(f.id)).forEach((f) => {
+      const btn = document.createElement("button");
+      btn.className = "focusable filter" + (f.id === activeType ? " active" : "");
+      btn.textContent = f.label;
+      btn.onclick = () => { activeType = f.id; renderFilters(); renderBoard(); };
+      filters.appendChild(btn);
+    });
+  }
+
   async function loadAddons() {
-    chips.innerHTML = ""; tabs.innerHTML = ""; grid.innerHTML = "";
+    chips.innerHTML = ""; filters.innerHTML = ""; board.innerHTML = "";
     catalogEntries = [];
 
     const urls = Addons.list();
@@ -80,50 +155,9 @@ export async function HomeScreen() {
       setStatus("Addon loaded, but it exposes no catalogs.");
       return;
     }
-
-    catalogEntries.forEach((entry, i) => {
-      const tab = document.createElement("button");
-      tab.className = "focusable tab";
-      tab.textContent = entry.catalog.name;
-      tab.onclick = () => { activeIndex = i; renderTabs(); loadCatalog(i); };
-      tabs.appendChild(tab);
-    });
-    renderTabs();
-    activeIndex = 0;
-    loadCatalog(0);
-  }
-
-  function renderTabs() {
-    Array.from(tabs.children).forEach((t, i) => t.classList.toggle("active", i === activeIndex));
-  }
-
-  async function loadCatalog(i) {
-    const entry = catalogEntries[i];
-    if (!entry) return;
-    grid.innerHTML = "";
-    setStatus(`Loading ${entry.catalog.name}…`);
-    try {
-      const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
-      setStatus(metas.length ? "" : "Empty catalog.");
-      metas.forEach((meta) => {
-        const card = document.createElement("button");
-        card.className = "focusable card";
-        card.innerHTML = meta.poster
-          ? `<img class="poster" src="${meta.poster}" alt="" loading="lazy" />
-             <span class="card-title">${escapeHtml(meta.name)}</span>`
-          : `<span class="poster poster-empty"></span>
-             <span class="card-title">${escapeHtml(meta.name)}</span>`;
-        card.onclick = () => Router.push(DetailScreen, {
-          addon: entry.addon,
-          type: meta.type || entry.catalog.type,
-          id: meta.id,
-          name: meta.name,
-        });
-        grid.appendChild(card);
-      });
-    } catch (e) {
-      setStatus(`Failed to load catalog: ${e.message}`);
-    }
+    setStatus("");
+    renderFilters();
+    renderBoard();
   }
 
   function submitAdd() {
