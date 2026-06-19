@@ -67,6 +67,18 @@ export function PlayerScreen({ stream }) {
   const engine = pickEngine();
   let hideTimer = 0;
 
+  // A browser blocks an http:// stream inside an https:// page ("mixed content").
+  // We don't pre-block (the TV webview often allows it) — we only explain it if
+  // playback actually fails.
+  const isHttpOnHttps = () =>
+    location.protocol === "https:" && typeof url === "string" && /^http:\/\//i.test(url);
+  function showPlaybackError() {
+    hint.classList.remove("hidden");
+    hint.textContent = isHttpOnHttps()
+      ? "This stream is HTTP and the browser blocked it on the secure (HTTPS) site. Open Helio on the TV, or pick an HTTPS stream."
+      : "Playback error — press Back to exit.";
+  }
+
   function showControls() {
     controls.classList.add("visible");
     clearTimeout(hideTimer);
@@ -112,7 +124,7 @@ export function PlayerScreen({ stream }) {
   video.addEventListener("timeupdate", refreshUI);
   video.addEventListener("loadedmetadata", refreshUI);
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
-  video.addEventListener("error", () => { hint.classList.remove("hidden"); hint.textContent = "Playback error — press Back to exit."; });
+  video.addEventListener("error", showPlaybackError);
   playBtn.onclick = () => { togglePlay(); showControls(); };
   seekBackBtn.onclick = () => seek(-10);
   seekFwdBtn.onclick = () => seek(10);
@@ -130,6 +142,7 @@ export function PlayerScreen({ stream }) {
       Promise.resolve(engine.load(video, url))
         .then(() => showControls())
         .catch(() => {
+          if (isHttpOnHttps()) { showPlaybackError(); return; }
           hint.classList.remove("hidden");
           hint.textContent = "Press Enter to start playback.";
           showControls();
