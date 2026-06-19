@@ -46,6 +46,26 @@ html, body {
   z-index: 2;
 }
 
+/* Mouse affordances on the web (no effect on a TV with no pointer). */
+@media (hover: hover) {
+  .card:hover .poster { box-shadow: 0 0 0 2px var(--text-dim); }
+  .btn:hover, .filter:hover, .see-all:hover, .kb-key:hover,
+  .stream-row:hover, .ep:hover, .chip-remove:hover { filter: brightness(1.18); }
+}
+
+/* Loading skeletons (shimmer) shown while a catalog loads. */
+.card-skeleton { pointer-events: none; }
+.poster-skel {
+  display: block; width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-2) 50%, var(--bg-elev) 75%);
+  background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite;
+}
+.title-skel {
+  display: block; height: 12px; margin-top: 8px; width: 80%;
+  border-radius: 4px; background: var(--bg-elev-2);
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
 /* ---------- Buttons / inputs ---------- */
 .btn {
   background: var(--bg-elev-2);

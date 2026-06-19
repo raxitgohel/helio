@@ -6,9 +6,7 @@ import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
 import { SearchScreen } from "./search.js";
 import { CatalogScreen } from "./catalog.js";
-
-const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+import { makeCard, makeSkeleton } from "../ui/card.js";
 
 const PREVIEW_COUNT = 12;
 const TYPE_FILTERS = [
@@ -49,22 +47,12 @@ export async function HomeScreen() {
 
   const setStatus = (t) => { status.textContent = t || ""; };
 
-  function makeCard(meta, entry) {
-    const card = document.createElement("button");
-    card.className = "focusable card";
-    card.innerHTML = meta.poster
-      ? `<img class="poster" src="${meta.poster}" alt="" loading="lazy" />
-         <span class="card-title">${escapeHtml(meta.name)}</span>`
-      : `<span class="poster poster-empty"></span>
-         <span class="card-title">${escapeHtml(meta.name)}</span>`;
-    card.onclick = () => Router.push(DetailScreen, {
-      addon: entry.addon,
-      type: meta.type || entry.catalog.type,
-      id: meta.id,
-      name: meta.name,
-    });
-    return card;
-  }
+  const openDetail = (meta, entry) => () => Router.push(DetailScreen, {
+    addon: entry.addon,
+    type: meta.type || entry.catalog.type,
+    id: meta.id,
+    name: meta.name,
+  });
 
   async function renderSection(entry) {
     const section = document.createElement("section");
@@ -86,11 +74,15 @@ export async function HomeScreen() {
     section.appendChild(grid);
     board.appendChild(section);
 
+    // Show shimmering placeholders while the catalog loads.
+    for (let i = 0; i < PREVIEW_COUNT; i++) grid.appendChild(makeSkeleton());
+
     try {
       const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
       const slice = metas.slice(0, PREVIEW_COUNT);
       if (slice.length === 0) { section.remove(); return; } // hide empty catalogs
-      slice.forEach((meta) => grid.appendChild(makeCard(meta, entry)));
+      grid.innerHTML = "";
+      slice.forEach((meta) => grid.appendChild(makeCard(meta, openDetail(meta, entry))));
     } catch (e) {
       section.remove(); // hide unreachable catalogs
     }

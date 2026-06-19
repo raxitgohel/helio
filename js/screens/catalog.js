@@ -3,6 +3,7 @@
 import { Router } from "../main.js";
 import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
+import { makeCard, makeSkeleton } from "../ui/card.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -31,17 +32,9 @@ export async function CatalogScreen({ addon, catalog }) {
 
   function addCards(metas) {
     metas.forEach((meta) => {
-      const card = document.createElement("button");
-      card.className = "focusable card";
-      card.innerHTML = meta.poster
-        ? `<img class="poster" src="${meta.poster}" alt="" loading="lazy" />
-           <span class="card-title">${escapeHtml(meta.name)}</span>`
-        : `<span class="poster poster-empty"></span>
-           <span class="card-title">${escapeHtml(meta.name)}</span>`;
-      card.onclick = () => Router.push(DetailScreen, {
+      grid.appendChild(makeCard(meta, () => Router.push(DetailScreen, {
         addon, type: meta.type || catalog.type, id: meta.id, name: meta.name,
-      });
-      grid.appendChild(card);
+      })));
     });
   }
 
@@ -49,9 +42,13 @@ export async function CatalogScreen({ addon, catalog }) {
     if (loading || done) return;
     loading = true;
     setFoot();
-    status.textContent = skip === 0 ? "Loading…" : "Loading more…";
+    const firstLoad = skip === 0;
+    status.textContent = firstLoad ? "Loading…" : "Loading more…";
+    let skeletons = [];
+    if (firstLoad) { skeletons = Array.from({ length: 18 }, makeSkeleton); skeletons.forEach((s) => grid.appendChild(s)); }
     try {
       const metas = await Addons.catalog(addon.baseUrl, catalog.type, catalog.id, skip);
+      skeletons.forEach((s) => s.remove());
       if (metas.length === 0) {
         done = true;
         status.textContent = skip === 0 ? "This catalog is empty." : "";

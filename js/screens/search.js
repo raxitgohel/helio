@@ -7,9 +7,7 @@ import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
 import { createKeyboard } from "../ui/keyboard.js";
 import { Platform } from "../platform.js";
-
-const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+import { makeCard } from "../ui/card.js";
 
 export async function SearchScreen() {
   const useNativeInput = Platform.isBrowser();
@@ -41,20 +39,12 @@ export async function SearchScreen() {
       const metas = await Addons.search(q);
       status.textContent = metas.length ? "" : `No results for “${q}”.`;
       metas.forEach((meta) => {
-        const card = document.createElement("button");
-        card.className = "focusable card";
-        card.innerHTML = meta.poster
-          ? `<img class="poster" src="${meta.poster}" alt="" loading="lazy" />
-             <span class="card-title">${escapeHtml(meta.name)}</span>`
-          : `<span class="poster poster-empty"></span>
-             <span class="card-title">${escapeHtml(meta.name)}</span>`;
-        card.onclick = () => Router.push(DetailScreen, {
+        results.appendChild(makeCard(meta, () => Router.push(DetailScreen, {
           addon: { baseUrl: meta.addonBaseUrl },
           type: meta.type,
           id: meta.id,
           name: meta.name,
-        });
-        results.appendChild(card);
+        })));
       });
     } catch (e) {
       status.textContent = `Search failed: ${e.message}`;
