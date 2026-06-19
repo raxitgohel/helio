@@ -130,8 +130,33 @@ export function PlayerScreen({ stream }) {
   seekFwdBtn.onclick = () => seek(10);
   el.addEventListener("mousemove", showControls); // convenience during browser dev
 
+  // Click anywhere on the progress bar to jump to that point.
+  const progress = el.querySelector(".pc-progress");
+  progress.style.cursor = "pointer";
+  progress.addEventListener("click", (e) => {
+    const d = Number(video.duration) || 0;
+    if (d <= 0) return;
+    const rect = progress.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    video.currentTime = frac * d;
+    refreshUI();
+    showControls();
+  });
+
+  // Track fullscreen exits so the Esc that leaves fullscreen doesn't also exit the player.
+  let justExitedFsAt = 0;
+  const onFsChange = () => { if (!document.fullscreenElement) justExitedFsAt = Date.now(); };
+  document.addEventListener("fullscreenchange", onFsChange);
+
   return {
     el,
+    // Back/Esc: if we're in OS fullscreen (or just left it via this same Esc),
+    // only leave fullscreen and keep playing. A second Back then exits the player.
+    onBack() {
+      if (document.fullscreenElement) { exitFullscreen(); return true; }
+      if (Date.now() - justExitedFsAt < 500) return true;
+      return false;
+    },
     onEnter() {
       enterFullscreen();
       if (!url) {
@@ -157,6 +182,7 @@ export function PlayerScreen({ stream }) {
     },
     destroy() {
       clearTimeout(hideTimer);
+      document.removeEventListener("fullscreenchange", onFsChange);
       exitFullscreen();
       engine.destroy(video);
     },

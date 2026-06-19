@@ -41,22 +41,50 @@ export async function DetailScreen({ addon, type, id, name }) {
 
       const isSeries = type === "series" || (meta.videos && meta.videos.length > 0);
       if (isSeries && meta.videos.length) {
-        episodes.innerHTML = `<h3 class="eps-title">Episodes</h3>`;
-        const list = document.createElement("div");
-        list.className = "eps-list";
+        // Group episodes by season (season 0 = specials), sorted.
+        const bySeason = new Map();
         meta.videos.forEach((v) => {
-          const btn = document.createElement("button");
-          btn.className = "focusable ep";
-          const label = (v.season != null && v.episode != null)
-            ? `S${v.season}E${v.episode}  ${v.name || v.title || ""}`.trim()
-            : (v.name || v.title || v.id);
-          btn.textContent = label;
-          btn.onclick = () => Router.push(StreamsScreen, {
-            type, videoId: v.id, title: label,
-          });
-          list.appendChild(btn);
+          const s = Number(v.season != null ? v.season : 0);
+          if (!bySeason.has(s)) bySeason.set(s, []);
+          bySeason.get(s).push(v);
         });
-        episodes.appendChild(list);
+        const seasons = Array.from(bySeason.keys()).sort((a, b) => a - b);
+        seasons.forEach((s) => bySeason.get(s).sort((a, b) => Number(a.episode || 0) - Number(b.episode || 0)));
+        // Default to the first real season (skip specials/0 if a numbered season exists).
+        let activeSeason = seasons.find((s) => s >= 1);
+        if (activeSeason == null) activeSeason = seasons[0];
+
+        episodes.innerHTML = `<h3 class="eps-title">Episodes</h3>
+          <div class="season-tabs"></div>
+          <div class="eps-list"></div>`;
+        const tabs = episodes.querySelector(".season-tabs");
+        const list = episodes.querySelector(".eps-list");
+
+        const renderTabs = () => {
+          tabs.innerHTML = "";
+          if (seasons.length <= 1) return; // no selector needed for a single season
+          seasons.forEach((s) => {
+            const t = document.createElement("button");
+            t.className = "focusable season-tab" + (s === activeSeason ? " active" : "");
+            t.textContent = s === 0 ? "Specials" : `Season ${s}`;
+            t.onclick = () => { activeSeason = s; renderTabs(); renderEpisodes(); };
+            tabs.appendChild(t);
+          });
+        };
+        const renderEpisodes = () => {
+          list.innerHTML = "";
+          (bySeason.get(activeSeason) || []).forEach((v) => {
+            const btn = document.createElement("button");
+            btn.className = "focusable ep";
+            const epPrefix = v.episode != null ? `E${v.episode} · ` : "";
+            btn.textContent = `${epPrefix}${v.name || v.title || v.id}`;
+            const fullTitle = `S${activeSeason}E${v.episode != null ? v.episode : ""} ${v.name || v.title || ""}`.trim();
+            btn.onclick = () => Router.push(StreamsScreen, { type, videoId: v.id, title: fullTitle });
+            list.appendChild(btn);
+          });
+        };
+        renderTabs();
+        renderEpisodes();
       } else {
         const play = document.createElement("button");
         play.className = "focusable btn btn-primary";

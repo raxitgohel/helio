@@ -185,6 +185,9 @@ html, body {
 .detail-actions { display: flex; gap: 12px; margin-bottom: 28px; }
 
 .eps-title { font-size: 22px; margin: 8px 0 14px; }
+.season-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
+.season-tab { background: var(--bg-elev); color: var(--text-dim); border: none; border-radius: 999px; padding: 8px 18px; font-size: 16px; }
+.season-tab.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .eps-list { display: flex; flex-direction: column; gap: 10px; max-width: 820px; }
 .ep {
   text-align: left; background: var(--bg-elev); color: var(--text);
