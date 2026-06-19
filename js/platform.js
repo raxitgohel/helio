@@ -25,6 +25,12 @@ export const Platform = {
   isBrowser() { return this.name === "browser"; },
 
   _initTizen() {
+    // TV is a 10-foot UI: lock to a 1280 design width so the layout scales up
+    // cleanly on a 1080p panel (web uses the device-width viewport from index.html).
+    try {
+      const vp = document.querySelector("meta[name=viewport]");
+      if (vp) vp.setAttribute("content", "width=1280, initial-scale=1, maximum-scale=1, user-scalable=no");
+    } catch (_) {}
     try {
       const dev = window.tizen && window.tizen.tvinputdevice;
       ["Back", "Return", "MediaPlay", "MediaPause", "MediaPlayPause", "MediaStop"]

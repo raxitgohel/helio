@@ -16,20 +16,22 @@
 
 html, body {
   margin: 0;
-  width: 1280px;
-  min-height: 720px;
+  width: 100%;
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-#app { width: 1280px; min-height: 720px; }
+#app { width: 100%; min-height: 100vh; }
 
 .screen {
-  width: 1280px;
-  min-height: 720px;
-  padding: 32px 48px 48px;
+  width: 100%;
+  min-height: 100vh;
+  /* Fluid gutters: tight on phones, roomy on desktop/TV. */
+  padding: clamp(20px, 3vh, 32px) clamp(16px, 4vw, 56px) clamp(32px, 5vh, 56px);
 }
 
 /* ---------- Focus model: the input engine toggles .focused ---------- */
@@ -90,8 +92,9 @@ html, body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--gap);
+  /* Responsive columns: poster width stays sensible, column count adapts to the window. */
+  grid-template-columns: repeat(auto-fill, minmax(clamp(120px, 14vw, 180px), 1fr));
+  gap: clamp(14px, 1.5vw, 24px);
 }
 .card {
   display: flex; flex-direction: column; gap: 8px;
