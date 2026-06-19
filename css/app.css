@@ -111,6 +111,12 @@ html, body {
 
 /* ---------- Search ---------- */
 .search-title { font-size: 30px; margin: 4px 0 16px; }
+.search-input {
+  display: block; width: 100%; max-width: 720px; margin-bottom: 24px;
+  background: var(--bg-elev); color: var(--text); border: 1px solid #2b3340;
+  border-radius: 12px; padding: 16px 20px; font-size: 24px;
+}
+.search-input:focus { border-color: var(--accent); outline: none; }
 .search-query {
   font-size: 26px; background: var(--bg-elev); border: 1px solid #2b3340;
   border-radius: 12px; padding: 14px 18px; min-height: 32px; margin-bottom: 22px; max-width: 980px;
