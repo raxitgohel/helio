@@ -1,11 +1,13 @@
 // Home: a scrolling "board" of catalog sections. Each installed catalog renders
 // a labeled section with a preview slice of posters + a "See all" into the full
 // (paginated) catalog. A type filter (All / Movies / Series) narrows the board.
+// Addon management lives in Settings, not here.
 import { Router } from "../main.js";
 import { Addons } from "../addons.js";
 import { DetailScreen } from "./detail.js";
 import { SearchScreen } from "./search.js";
 import { CatalogScreen } from "./catalog.js";
+import { SettingsScreen } from "./settings.js";
 import { makeCard, makeSkeleton } from "../ui/card.js";
 
 const PREVIEW_COUNT = 12;
@@ -21,29 +23,22 @@ export async function HomeScreen() {
   el.innerHTML = `
     <header class="topbar">
       <h1 class="logo">Helio</h1>
-      <div class="addbar">
-        <input id="addon-url" class="addon-input" type="text"
-          placeholder="Paste a Stremio addon URL (…/manifest.json) and press Enter" />
-        <button id="add-btn" class="focusable btn">Add</button>
-      </div>
+      <span class="topbar-spacer"></span>
       <button id="search-btn" class="focusable btn">🔍 Search</button>
+      <button id="settings-btn" class="focusable btn">⚙ Settings</button>
     </header>
-    <div id="chips" class="chips"></div>
     <div id="filters" class="filters"></div>
     <div id="board" class="board"></div>
     <div id="status" class="status"></div>
   `;
 
-  const input = el.querySelector("#addon-url");
-  const addBtn = el.querySelector("#add-btn");
-  const chips = el.querySelector("#chips");
   const filters = el.querySelector("#filters");
   const board = el.querySelector("#board");
   const status = el.querySelector("#status");
 
   let catalogEntries = []; // [{ addon, catalog }]
   let activeType = "all";
-  let loaded = false;
+  let lastSig = null; // installed-addon-list signature, to refresh on return
 
   const setStatus = (t) => { status.textContent = t || ""; };
 
@@ -74,17 +69,16 @@ export async function HomeScreen() {
     section.appendChild(grid);
     board.appendChild(section);
 
-    // Show shimmering placeholders while the catalog loads.
     for (let i = 0; i < PREVIEW_COUNT; i++) grid.appendChild(makeSkeleton());
 
     try {
       const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
       const slice = metas.slice(0, PREVIEW_COUNT);
-      if (slice.length === 0) { section.remove(); return; } // hide empty catalogs
+      if (slice.length === 0) { section.remove(); return; }
       grid.innerHTML = "";
       slice.forEach((meta) => grid.appendChild(makeCard(meta, openDetail(meta, entry))));
     } catch (e) {
-      section.remove(); // hide unreachable catalogs
+      section.remove();
     }
   }
 
@@ -107,44 +101,25 @@ export async function HomeScreen() {
   }
 
   async function loadAddons() {
-    chips.innerHTML = ""; filters.innerHTML = ""; board.innerHTML = "";
+    filters.innerHTML = ""; board.innerHTML = "";
     catalogEntries = [];
 
     const urls = Addons.list();
     if (urls.length === 0) {
-      setStatus("No addons yet. Paste an addon manifest URL above to begin — Helio ships empty by design.");
+      setStatus("No addons yet. Open ⚙ Settings → Addons to add a Stremio addon — Helio ships empty by design.");
       return;
     }
 
     setStatus("Loading addons…");
     const manifests = [];
     for (const url of urls) {
-      try {
-        const m = await Addons.manifest(url);
-        manifests.push(m);
-        const chip = document.createElement("div");
-        chip.className = "chip";
-        chip.textContent = m.name;
-        const rm = document.createElement("button");
-        rm.className = "focusable chip-remove";
-        rm.textContent = "✕";
-        rm.title = `Remove ${m.name}`;
-        rm.onclick = () => { Addons.remove(m.baseUrl); loadAddons(); };
-        chip.appendChild(rm);
-        chips.appendChild(chip);
-      } catch (e) {
-        const chip = document.createElement("div");
-        chip.className = "chip chip-error";
-        chip.textContent = `${url} (failed)`;
-        chips.appendChild(chip);
-      }
+      try { manifests.push(await Addons.manifest(url)); } catch (e) { /* skip unreachable */ }
     }
-
     manifests.forEach((m) =>
       (m.catalogs || []).forEach((catalog) => catalogEntries.push({ addon: m, catalog })));
 
     if (catalogEntries.length === 0) {
-      setStatus("Addon loaded, but it exposes no catalogs.");
+      setStatus("Your addons expose no catalogs. Add a catalog addon in ⚙ Settings → Addons.");
       return;
     }
     setStatus("");
@@ -152,21 +127,16 @@ export async function HomeScreen() {
     renderBoard();
   }
 
-  function submitAdd() {
-    const value = input.value.trim();
-    if (!value) return;
-    if (Addons.add(value)) { input.value = ""; loadAddons(); }
-    else setStatus("That addon is already installed, or the URL is invalid.");
-  }
-
-  addBtn.onclick = submitAdd;
   el.querySelector("#search-btn").onclick = () => Router.push(SearchScreen);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); submitAdd(); input.blur(); }
-  });
+  el.querySelector("#settings-btn").onclick = () => Router.push(SettingsScreen);
 
   return {
     el,
-    onEnter() { if (!loaded) { loaded = true; loadAddons(); } },
+    onEnter() {
+      // (Re)load when first shown, or when the installed-addon list changed
+      // since we last rendered (e.g. returning from Settings after adding one).
+      const sig = JSON.stringify(Addons.list());
+      if (sig !== lastSig) { lastSig = sig; loadAddons(); }
+    },
   };
 }

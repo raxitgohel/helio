@@ -6,6 +6,7 @@
 
 import { Platform } from "./platform.js";
 import { Input } from "./input.js";
+import { Theme } from "./theme.js";
 import { HomeScreen } from "./screens/home.js";
 
 const appEl = document.getElementById("app");
@@ -64,6 +65,7 @@ window.addEventListener("popstate", () => {
 });
 
 Platform.init();
+Theme.init();
 Input.init(Router);
 // Seed two entries so the very first Back is catchable (lands on our own state).
 history.replaceState({ helioDepth: 0 }, "");

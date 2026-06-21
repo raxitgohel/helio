@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Soft Index — Color Themes</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #e8e6df; }
+  #root { width: 100%; min-height: 100vh; }
+  #stage { width: 100%; display: flex; justify-content: center; }
+  #scaler { transform-origin: top center; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="options/option-e-soft-index.jsx"></script>
+
+<script type="text/babel">
+  const { useTweaks, TweaksPanel, TweakSection } = window;
+  const THEMES = window.SOFT_INDEX_THEMES;
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "theme": "midnight"
+  }/*EDITMODE-END*/;
+
+  // Custom swatch picker — named themes read better than raw color chips here.
+  function ThemePicker({ value, onChange }) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {THEMES.map((th) => {
+          const on = th.id === value;
+          return (
+            <button key={th.id} onClick={() => onChange(th.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%",
+                padding: "10px 11px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                background: on ? "rgba(255,255,255,.10)" : "transparent",
+                border: on ? "1px solid rgba(255,255,255,.28)" : "1px solid rgba(255,255,255,.10)",
+                color: "inherit", font: "inherit",
+              }}>
+              <span style={{ display: "flex", flexShrink: 0, borderRadius: 7, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.3)" }}>
+                {th.swatches.map((c, i) => (
+                  <span key={i} style={{ width: 16, height: 30, background: c }}></span>
+                ))}
+              </span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{th.name}</span>
+                <span style={{ fontSize: 11, opacity: .6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.note}</span>
+              </span>
+              {on && <span style={{ marginLeft: "auto", fontSize: 13 }}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const theme = THEMES.find((x) => x.id === t.theme) || THEMES[0];
+
+    // Scale the fixed 1440 design to the viewport width.
+    const [scale, setScale] = React.useState(1);
+    const innerRef = React.useRef(null);
+    const [h, setH] = React.useState(0);
+    React.useLayoutEffect(() => {
+      function fit() {
+        const s = Math.min(1, window.innerWidth / 1440);
+        setScale(s);
+        if (innerRef.current) setH(innerRef.current.offsetHeight * s);
+      }
+      fit();
+      window.addEventListener("resize", fit);
+      const ro = new ResizeObserver(fit);
+      if (innerRef.current) ro.observe(innerRef.current);
+      return () => { window.removeEventListener("resize", fit); ro.disconnect(); };
+    }, [t.theme]);
+
+    return (
+      <div id="stage">
+        <div id="scaler" style={{ transform: `scale(${scale})`, height: h }}>
+          <div ref={innerRef} style={{ width: 1440 }}>
+            <window.OptionESoftIndex vars={theme.vars} heroPal={theme.heroPal} />
+          </div>
+        </div>
+        <TweaksPanel>
+          <TweakSection label="Color theme" />
+          <ThemePicker value={t.theme} onChange={(v) => setTweak("theme", v)} />
+        </TweaksPanel>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
