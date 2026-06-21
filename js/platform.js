@@ -49,17 +49,22 @@ export const Platform = {
     };
   },
 
-  // Best-guess max video height (in lines) this display can usefully show, from
-  // the native pixel long-edge. Used to recommend a sensibly-sized stream — e.g.
-  // don't push 4K to a 1080p laptop. A hint, not a hard cap.
-  maxVideoHeight() {
-    const dpr = window.devicePixelRatio || 1;
-    const w = (window.screen && window.screen.width) || window.innerWidth || 1280;
-    const h = (window.screen && window.screen.height) || window.innerHeight || 720;
-    const longEdge = Math.max(w, h) * dpr;
-    if (longEdge >= 3600) return 2160; // 4K
-    if (longEdge >= 2500) return 1440;
-    if (longEdge >= 1800) return 1080;
+  // Best-guess max video height (lines) to recommend, from the display's native
+  // pixel long-edge (CSS px × devicePixelRatio). Tuned so 4K-capable / high-DPI
+  // devices (modern phones, 4K panels) map to 2160, while a genuine 1080p laptop
+  // panel maps to 1080 — e.g. iPhone (~2556) → 4K, 1080p laptop (1920) → 1080p.
+  // A hint, not a hard cap; the full stream list stays available. Pass an explicit
+  // longEdge to test the tiering.
+  maxVideoHeight(longEdgeOverride) {
+    let longEdge = longEdgeOverride;
+    if (!longEdge) {
+      const dpr = window.devicePixelRatio || 1;
+      const w = (window.screen && window.screen.width) || window.innerWidth || 1280;
+      const h = (window.screen && window.screen.height) || window.innerHeight || 720;
+      longEdge = Math.max(w, h) * dpr;
+    }
+    if (longEdge >= 2200) return 2160; // 4K-class / high-DPI (incl. modern phones)
+    if (longEdge >= 1700) return 1080; // ~1080p displays
     if (longEdge >= 1200) return 720;
     return 480;
   },

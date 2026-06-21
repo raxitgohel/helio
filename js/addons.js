@@ -28,11 +28,19 @@ function catalogSupportsSearch(c) {
   return false;
 }
 
-async function getJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+async function getJson(url, { timeout = 0 } = {}) {
+  const ctrl = timeout && typeof AbortController !== "undefined" ? new AbortController() : null;
+  const tid = ctrl ? setTimeout(() => ctrl.abort(), timeout) : null;
+  try {
+    const res = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    if (tid) clearTimeout(tid);
+  }
 }
+
+const streamCache = new Map(); // `${type}:${videoId}` -> groups (per session)
 
 export const Addons = {
   // ----- installed addon list (per profile) -----
@@ -164,7 +172,7 @@ export const Addons = {
 
   async streamsFromAddon(base, type, videoId) {
     const b = canonicalize(base);
-    const data = await getJson(`${b}/stream/${type}/${enc(videoId)}.json`);
+    const data = await getJson(`${b}/stream/${type}/${enc(videoId)}.json`, { timeout: 15000 });
     return (data.streams || []).map((s) => ({
       name: s.name || null,
       title: s.title || s.name || "Stream",
@@ -178,19 +186,32 @@ export const Addons = {
 
   // Query EVERY installed addon that exposes a `stream` resource for this type,
   // in parallel, keyed by the content id (e.g. an IMDB id from Cinemeta).
-  // Returns groups: [{ addonName, streams: [...] }] in installed-addon order.
-  async streamsFromAll(type, videoId) {
+  // - onGroup(group) fires as each addon resolves, so the UI can render
+  //   progressively instead of waiting for the slowest addon.
+  // - results are cached per session, so re-opening a title is instant.
+  // Returns groups: [{ addonName, streams: [...] }].
+  async streamsFromAll(type, videoId, { onGroup } = {}) {
+    const cacheKey = `${type}:${videoId}`;
+    if (streamCache.has(cacheKey)) {
+      const cached = streamCache.get(cacheKey);
+      if (onGroup) cached.forEach((g) => onGroup(g));
+      return cached;
+    }
     const urls = this.list();
     const results = await Promise.all(urls.map(async (url) => {
       try {
         const m = await this.manifest(url);
         if (!this.hasResource(m, "stream", type)) return null;
         const streams = await this.streamsFromAddon(m.baseUrl, type, videoId);
-        return streams.length ? { addonName: m.name, streams } : null;
+        const group = streams.length ? { addonName: m.name, streams } : null;
+        if (group && onGroup) onGroup(group); // render as soon as this addon responds
+        return group;
       } catch (_) {
-        return null; // unreachable addon / 404 — just skip it
+        return null; // unreachable addon / timeout / 404 — just skip it
       }
     }));
-    return results.filter(Boolean);
+    const groups = results.filter(Boolean);
+    streamCache.set(cacheKey, groups);
+    return groups;
   },
 };
