@@ -50,6 +50,7 @@ export function PlayerScreen({ stream }) {
       </div>
       <div class="pc-meta"><span class="pc-time">0:00 / 0:00</span></div>
     </div>
+    <button class="player-bigplay focusable" type="button" aria-label="Play">${icon("play", 40)}</button>
     <div class="player-hint">Loading…</div>
   `;
 
@@ -62,6 +63,7 @@ export function PlayerScreen({ stream }) {
   const seekFwdBtn = seekButtons[1];
   const timeEl = el.querySelector(".pc-time");
   const hint = el.querySelector(".player-hint");
+  const bigplay = el.querySelector(".player-bigplay");
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -119,17 +121,35 @@ export function PlayerScreen({ stream }) {
     } catch (_) {}
   }
 
-  video.addEventListener("playing", () => { hint.classList.add("hidden"); refreshUI(); showControls(); });
-  video.addEventListener("play", () => { refreshUI(); showControls(); });
-  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); });
-  video.addEventListener("timeupdate", refreshUI);
+  let lastProgressAt = Date.now();
+  const syncBigplay = () => { bigplay.style.display = video.paused ? "" : "none"; };
+
+  video.addEventListener("playing", () => { hint.classList.add("hidden"); lastProgressAt = Date.now(); refreshUI(); showControls(); syncBigplay(); });
+  video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
+  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); });
+  video.addEventListener("timeupdate", () => { lastProgressAt = Date.now(); refreshUI(); });
   video.addEventListener("loadedmetadata", refreshUI);
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
+
+  bigplay.onclick = () => { video.play().catch(() => {}); showControls(); };
   playBtn.onclick = () => { togglePlay(); showControls(); };
   seekBackBtn.onclick = () => seek(-10);
   seekFwdBtn.onclick = () => seek(10);
   el.addEventListener("mousemove", showControls); // convenience during browser dev
+  // Tap the video (touch) to reveal controls and start playback if a mobile
+  // browser blocked autoplay after the screen transition.
+  video.addEventListener("click", () => { if (video.paused) video.play().catch(() => {}); showControls(); });
+
+  // Stall watchdog: trying to play but no progress for a while → the stream is
+  // likely too heavy for this connection; say so actionably instead of an
+  // endless "Buffering…".
+  const stallTimer = setInterval(() => {
+    if (!video.paused && video.readyState < 3 && Date.now() - lastProgressAt > 20000) {
+      hint.classList.remove("hidden");
+      hint.textContent = "Still buffering — this stream may be too heavy for your connection. Press Back and try a lower-quality source.";
+    }
+  }, 5000);
 
   // Click anywhere on the progress bar to jump to that point.
   const progress = el.querySelector(".pc-progress");
@@ -169,8 +189,11 @@ export function PlayerScreen({ stream }) {
         .then(() => showControls())
         .catch(() => {
           if (isHttpOnHttps()) { showPlaybackError(); return; }
-          hint.classList.remove("hidden");
-          hint.textContent = "Press Enter to start playback.";
+          // Autoplay was blocked (common on mobile after a screen transition).
+          // The big Play overlay is already showing (video is paused) — a tap
+          // there or on the video starts playback within a fresh user gesture.
+          hint.classList.add("hidden");
+          syncBigplay();
           showControls();
         });
     },
@@ -183,6 +206,7 @@ export function PlayerScreen({ stream }) {
     },
     destroy() {
       clearTimeout(hideTimer);
+      clearInterval(stallTimer);
       document.removeEventListener("fullscreenchange", onFsChange);
       exitFullscreen();
       engine.destroy(video);

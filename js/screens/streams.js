@@ -33,6 +33,17 @@ function parseSize(s) {
 const hasHDR = (s) => /\bhdr|dolby\s?vision|\bdv\b|\bhdr10/i.test(`${s.title || ""} ${s.name || ""}`);
 const isPlayable = (s) => !!(s.url || s.externalUrl);
 
+// A phone can DECODE 4K but rarely STREAM its bitrate smoothly, so we recommend a
+// lighter quality there (the higher options stay in the list to pick manually).
+function isLikelyMobile() {
+  try {
+    const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    const small = Math.min(window.screen.width || 9999, window.screen.height || 9999) <= 520;
+    return coarse && touch && small;
+  } catch (_) { return false; }
+}
+
 const enrich = (s, addonName) => ({
   ...s, addonName,
   quality: parseQuality(s), size: parseSize(s), hdr: hasHDR(s), playable: isPlayable(s),
@@ -70,17 +81,18 @@ export async function StreamsScreen({ type, videoId, title }) {
 
   function render(items) {
     const cap = Platform.maxVideoHeight();
+    const recCap = isLikelyMobile() ? Math.min(cap, 1080) : cap; // smoother on mobile
     body.innerHTML = "";
     if (items.length === 0) return;
 
     const playable = items.filter((i) => i.playable).sort((a, b) => (b.quality || 0) - (a.quality || 0));
     const torrents = items.filter((i) => !i.playable).sort((a, b) => (b.quality || 0) - (a.quality || 0));
 
-    // Recommendation: best playable quality that fits the display; else the
+    // Recommendation: best playable quality that fits the recommended cap; else the
     // lowest known-quality playable (avoid over-spec), else just the first.
     let rec = null;
     if (playable.length) {
-      const fit = playable.filter((i) => i.quality != null && i.quality <= cap);
+      const fit = playable.filter((i) => i.quality != null && i.quality <= recCap);
       if (fit.length) rec = fit[0];
       else {
         const known = playable.filter((i) => i.quality != null).sort((a, b) => a.quality - b.quality);
@@ -90,7 +102,9 @@ export async function StreamsScreen({ type, videoId, title }) {
 
     const note = document.createElement("p");
     note.className = "streams-note";
-    note.textContent = `Matched to your display — up to ${capLabel(cap)}.`;
+    note.textContent = recCap < cap
+      ? `Recommended up to ${capLabel(recCap)} for smooth playback here — your screen supports ${capLabel(cap)}.`
+      : `Matched to your display — up to ${capLabel(cap)}.`;
     body.appendChild(note);
 
     if (rec) {
