@@ -3,6 +3,8 @@
 // for free. The caller owns the text buffer; this only emits key actions.
 // Symbols row is URL-friendly so the same keyboard can serve addon-URL entry.
 
+import { icon } from "./icons.js";
+
 export function createKeyboard({
   onInput,                 // (char) => void
   onSpace,                 // () => void
@@ -38,16 +40,16 @@ export function createKeyboard({
 
   const actions = document.createElement("div");
   actions.className = "kb-row kb-actions";
-  const mkAction = (label, cls, fn) => {
+  const mkAction = (html, cls, fn) => {
     const b = document.createElement("button");
     b.className = `focusable kb-key ${cls}`;
     b.type = "button";
-    b.textContent = label;
+    b.innerHTML = html;
     b.onclick = fn;
     return b;
   };
   actions.appendChild(mkAction("Space", "kb-space", onSpace));
-  actions.appendChild(mkAction("⌫", "kb-back", onBackspace)); // ⌫
+  actions.appendChild(mkAction(icon("backspace"), "kb-back", onBackspace));
   actions.appendChild(mkAction("Clear", "kb-clear", onClear));
   actions.appendChild(mkAction(submitLabel, "kb-submit", onSubmit));
   el.appendChild(actions);

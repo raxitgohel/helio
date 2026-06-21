@@ -49,6 +49,21 @@ export const Platform = {
     };
   },
 
+  // Best-guess max video height (in lines) this display can usefully show, from
+  // the native pixel long-edge. Used to recommend a sensibly-sized stream — e.g.
+  // don't push 4K to a 1080p laptop. A hint, not a hard cap.
+  maxVideoHeight() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = (window.screen && window.screen.width) || window.innerWidth || 1280;
+    const h = (window.screen && window.screen.height) || window.innerHeight || 720;
+    const longEdge = Math.max(w, h) * dpr;
+    if (longEdge >= 3600) return 2160; // 4K
+    if (longEdge >= 2500) return 1440;
+    if (longEdge >= 1800) return 1080;
+    if (longEdge >= 1200) return 720;
+    return 480;
+  },
+
   // Normalize a raw KeyboardEvent into a small, intent-level descriptor.
   normalizeKey(e) {
     const code = Number(e.keyCode || e.which || 0);

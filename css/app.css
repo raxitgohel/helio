@@ -270,6 +270,39 @@ html, body {
 
 .addbar { display: flex; gap: 12px; max-width: 860px; }
 
+/* ---------- Icons ---------- */
+.icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.see-all { display: inline-flex; align-items: center; gap: 4px; }
+.theme-check { display: inline-flex; align-items: center; }
+.chip-remove { display: inline-flex; align-items: center; justify-content: center; }
+.pc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* ---------- Streams (recommendation + clarity) ---------- */
+.streams-body { max-width: 980px; }
+.streams-note { color: var(--text-dim); font-size: 14px; margin: 4px 0 14px; max-width: 720px; line-height: 1.5; }
+
+.stream-rec {
+  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
+  background: var(--bg-elev); border: 1.5px solid var(--accent); border-radius: var(--radius-lg);
+  padding: 18px 20px; margin-bottom: 20px; color: var(--text); box-shadow: var(--shadow); cursor: pointer;
+}
+.rec-icon { color: var(--accent); display: inline-flex; flex-shrink: 0; }
+.rec-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.rec-label { font-size: 11.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+.rec-name { font-family: var(--font-display); font-weight: 600; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec-sub { font-size: 13px; color: var(--text-dim); }
+.rec-play { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 11px 20px; font-weight: 700; }
+
+.q-badge { flex-shrink: 0; min-width: 48px; text-align: center; font-size: 12px; font-weight: 700; padding: 6px 8px; border-radius: 9px; background: var(--bg-elev-2); color: var(--text-dim); }
+.q-badge.hi { background: var(--accent); color: var(--accent-ink); }
+
+/* override the base .stream-row for the badge + two-line layout */
+.stream-row { justify-content: flex-start; gap: 14px; }
+.stream-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.stream-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stream-sub { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stream-row.is-disabled { opacity: .55; cursor: default; box-shadow: none; }
+
 /* ---------- Player (overlay over video — stays dark) ---------- */
 .player-screen { padding: 0; background: #000; position: fixed; inset: 0; width: 100vw; height: 100vh; }
 .player-video { width: 100%; height: 100%; background: #000; display: block; object-fit: contain; }
@@ -301,3 +334,34 @@ html, body {
   background: rgba(0,0,0,.7); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 16px;
 }
 .player-hint.hidden { display: none; }
+
+/* ---------- Mobile (<= 640px) ---------- */
+@media (max-width: 640px) {
+  .screen { padding: 16px 14px 40px; }
+  .topbar { gap: 10px; }
+  .logo { font-size: 23px; }
+  .topbar .btn { padding: 10px 12px; }
+  .topbar .btn span { display: none; }            /* icon-only Search / Settings */
+
+  .detail-title { font-size: 30px; }
+  .search-title, .streams-title, .catalog-title, .settings-title { font-size: 24px; }
+  .search-input { font-size: 18px; padding: 13px 16px; }
+  .search-query { font-size: 20px; }
+
+  /* On-screen keyboard: let keys shrink to fit a narrow row */
+  .keyboard { max-width: 100%; }
+  .kb-row { gap: 6px; }
+  .kb-key { min-width: 0; flex: 1 1 0; height: 48px; font-size: 18px; padding: 0; }
+  .kb-actions .kb-key { padding: 0 6px; font-size: 14px; }
+
+  /* Player controls fit small screens */
+  .player-controls { padding: 18px 16px 22px; }
+  .pc-buttons { gap: 16px; }
+  .pc-seek { min-width: 84px; padding: 13px 14px; font-size: 17px; }
+  .pc-play { min-width: 68px; padding: 13px 16px; }
+
+  /* Stream recommendation stacks */
+  .stream-rec { flex-wrap: wrap; gap: 12px; }
+  .rec-play { width: 100%; justify-content: center; }
+  .detail-desc { font-size: 16px; }
+}

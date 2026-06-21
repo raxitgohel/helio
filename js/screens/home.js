@@ -9,6 +9,7 @@ import { SearchScreen } from "./search.js";
 import { CatalogScreen } from "./catalog.js";
 import { SettingsScreen } from "./settings.js";
 import { makeCard, makeSkeleton } from "../ui/card.js";
+import { icon } from "../ui/icons.js";
 
 const PREVIEW_COUNT = 12;
 const TYPE_FILTERS = [
@@ -24,8 +25,8 @@ export async function HomeScreen() {
     <header class="topbar">
       <h1 class="logo">Helio</h1>
       <span class="topbar-spacer"></span>
-      <button id="search-btn" class="focusable btn">🔍 Search</button>
-      <button id="settings-btn" class="focusable btn">⚙ Settings</button>
+      <button id="search-btn" class="focusable btn">${icon("search")}<span>Search</span></button>
+      <button id="settings-btn" class="focusable btn">${icon("settings")}<span>Settings</span></button>
     </header>
     <div id="filters" class="filters"></div>
     <div id="board" class="board"></div>
@@ -59,7 +60,7 @@ export async function HomeScreen() {
     title.textContent = `${entry.addon.name} · ${entry.catalog.name}`;
     const seeAll = document.createElement("button");
     seeAll.className = "focusable see-all";
-    seeAll.textContent = "See all ›";
+    seeAll.innerHTML = `<span>See all</span>${icon("chevronRight", 16)}`;
     seeAll.onclick = () => Router.push(CatalogScreen, { addon: entry.addon, catalog: entry.catalog });
     head.appendChild(title);
     head.appendChild(seeAll);

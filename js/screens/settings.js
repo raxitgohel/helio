@@ -5,6 +5,7 @@ import { Addons } from "../addons.js";
 import { Theme } from "../theme.js";
 import { Platform } from "../platform.js";
 import { AddAddonScreen } from "./addAddon.js";
+import { icon } from "../ui/icons.js";
 
 export async function SettingsScreen() {
   const el = document.createElement("div");
@@ -47,7 +48,7 @@ export async function SettingsScreen() {
           <span class="theme-name">${th.name}</span>
           <span class="theme-note">${th.note}</span>
         </span>
-        ${th.id === active ? '<span class="theme-check">✓</span>' : ""}`;
+        ${th.id === active ? `<span class="theme-check">${icon("check", 18)}</span>` : ""}`;
       opt.onclick = () => { Theme.set(th.id); renderThemes(); };
       themeList.appendChild(opt);
     });
@@ -76,7 +77,7 @@ export async function SettingsScreen() {
     } else {
       const btn = document.createElement("button");
       btn.className = "focusable btn btn-primary";
-      btn.textContent = "➕ Add addon";
+      btn.innerHTML = `${icon("plus")}<span>Add addon</span>`;
       btn.onclick = () => Router.push(AddAddonScreen);
       addonAdd.appendChild(btn);
     }
@@ -94,7 +95,7 @@ export async function SettingsScreen() {
       const rm = document.createElement("button");
       rm.className = "focusable chip-remove";
       rm.type = "button";
-      rm.textContent = "✕";
+      rm.innerHTML = icon("close", 14);
       rm.title = "Remove";
       rm.onclick = () => { Addons.remove(url); loadAddonList(); };
       chip.appendChild(rm);

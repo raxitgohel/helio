@@ -3,6 +3,7 @@
 // slot in later without touching the player screen.
 
 import { Platform } from "./platform.js";
+import { icon } from "./ui/icons.js";
 
 // Engine interface: { name, canPlay(url), load(video, url) -> Promise, destroy(video) }
 const nativeEngine = {
@@ -43,9 +44,9 @@ export function PlayerScreen({ stream }) {
     <div class="player-controls">
       <div class="pc-progress"><div class="pc-fill"></div></div>
       <div class="pc-buttons">
-        <button class="pc-btn pc-seek" type="button" aria-label="Back 10 seconds">&#9194; 10s</button>
-        <button class="pc-btn pc-play" type="button" aria-label="Play">&#9658;</button>
-        <button class="pc-btn pc-seek" type="button" aria-label="Forward 10 seconds">10s &#9193;</button>
+        <button class="pc-btn pc-seek" type="button" aria-label="Back 10 seconds">${icon("rewind", 22)}<span>10</span></button>
+        <button class="pc-btn pc-play" type="button" aria-label="Play">${icon("play", 26)}</button>
+        <button class="pc-btn pc-seek" type="button" aria-label="Forward 10 seconds"><span>10</span>${icon("forward", 22)}</button>
       </div>
       <div class="pc-meta"><span class="pc-time">0:00 / 0:00</span></div>
     </div>
@@ -89,7 +90,7 @@ export function PlayerScreen({ stream }) {
     const t = Number(video.currentTime) || 0;
     fill.style.width = d > 0 ? `${(t / d) * 100}%` : "0%";
     timeEl.textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
-    playBtn.innerHTML = video.paused ? "&#9658;" : "&#10074;&#10074;";
+    playBtn.innerHTML = icon(video.paused ? "play" : "pause", 26);
     playBtn.setAttribute("aria-label", video.paused ? "Play" : "Pause");
   }
   function togglePlay() {
