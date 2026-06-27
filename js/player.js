@@ -75,6 +75,15 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
         <div class="panel-h">Subtitles</div>
         <div class="panel-list" data-k="subs"></div>
       </div>
+      <div class="panel-sec panel-sync">
+        <div class="panel-h">Subtitle delay</div>
+        <div class="sync-row">
+          <button class="focusable panel-opt sync-dec" type="button" aria-label="Subtitles earlier">&#8722;0.25s</button>
+          <span class="sync-val">0.00s</span>
+          <button class="focusable panel-opt sync-inc" type="button" aria-label="Subtitles later">+0.25s</button>
+          <button class="focusable panel-opt sync-reset" type="button">Reset</button>
+        </div>
+      </div>
     </div>
     <button class="player-bigplay focusable" type="button" aria-label="Play">${icon("play", 40)}</button>
     <div class="player-upnext" hidden>
@@ -101,6 +110,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   const optsBtn = el.querySelector(".pc-opts");
   const panel = el.querySelector(".player-panel");
   const subList = el.querySelector('[data-k="subs"]');
+  const syncVal = el.querySelector(".sync-val");
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -245,6 +255,10 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
 
   upnextPlay.onclick = () => { if (upNext) upNext.go(); };
   optsBtn.onclick = () => { panel.hidden = !panel.hidden; showControls(); };
+  const updateSync = () => { syncVal.textContent = `${subOffset > 0 ? "+" : ""}${subOffset.toFixed(2)}s`; renderSubs(); };
+  el.querySelector(".sync-dec").onclick = () => { subOffset = Math.round((subOffset - 0.25) * 100) / 100; updateSync(); };
+  el.querySelector(".sync-inc").onclick = () => { subOffset = Math.round((subOffset + 0.25) * 100) / 100; updateSync(); };
+  el.querySelector(".sync-reset").onclick = () => { subOffset = 0; updateSync(); };
   bigplay.onclick = () => { video.play().catch(() => {}); showControls(); };
   playBtn.onclick = () => { togglePlay(); showControls(); };
   seekBackBtn.onclick = () => seek(-10);

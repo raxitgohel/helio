@@ -368,6 +368,8 @@ html, body {
 .panel-opt { background: rgba(255,255,255,.12); color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
 .panel-opt.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .panel-empty { color: rgba(255,255,255,.6); font-size: 13px; }
+.sync-row { display: flex; align-items: center; gap: 8px; }
+.sync-val { font-variant-numeric: tabular-nums; min-width: 54px; text-align: center; font-size: 14px; }
 
 /* "Up next" prompt shown when an episode ends. */
 .player-upnext {
