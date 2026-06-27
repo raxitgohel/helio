@@ -4,6 +4,7 @@
 
 import { Platform } from "./platform.js";
 import { icon } from "./ui/icons.js";
+import { WatchProgress } from "./data/watchProgress.js";
 
 const isHls = (u) => /\.m3u8(\?|#|$)/i.test(String(u || ""));
 
@@ -52,7 +53,7 @@ function fmtTime(total) {
 
 // Screen factory — pushed onto the router like any other screen, so Back exits
 // playback and destroy() tears the engine down.
-export function PlayerScreen({ stream }) {
+export function PlayerScreen({ stream, type, videoId, title } = {}) {
   const el = document.createElement("div");
   el.className = "screen player-screen";
   el.innerHTML = `
@@ -139,11 +140,34 @@ export function PlayerScreen({ stream }) {
 
   const syncBigplay = () => { bigplay.style.display = video.paused ? "" : "none"; };
 
+  // ----- resume / continue-watching position -----
+  let lastSaveAt = 0;
+  let resumed = false;
+  function saveProgress() {
+    if (!videoId) return;
+    const t = Number(video.currentTime) || 0;
+    const d = Number(video.duration) || 0;
+    if (t < 5) return;
+    WatchProgress.save({ type, id: videoId, t, d, title });
+  }
+  function maybeResume() {
+    if (resumed || !videoId) return;
+    resumed = true;
+    const saved = WatchProgress.get(type, videoId);
+    const d = Number(video.duration) || 0;
+    if (saved && saved.t > 15 && d > 0 && saved.t < d * 0.95) {
+      try { video.currentTime = saved.t; } catch (_) {}
+      hint.classList.remove("hidden");
+      hint.textContent = `Resumed from ${fmtTime(saved.t)}`;
+      setTimeout(() => { if ((hint.textContent || "").startsWith("Resumed")) hint.classList.add("hidden"); }, 2600);
+    }
+  }
+
   video.addEventListener("playing", () => { hint.classList.add("hidden"); refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
-  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); });
-  video.addEventListener("timeupdate", refreshUI);
-  video.addEventListener("loadedmetadata", refreshUI);
+  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); saveProgress(); });
+  video.addEventListener("timeupdate", () => { refreshUI(); const now = Date.now(); if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); } });
+  video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); });
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
 
@@ -211,6 +235,7 @@ export function PlayerScreen({ stream }) {
       return false;
     },
     destroy() {
+      saveProgress();
       clearTimeout(hideTimer);
       document.removeEventListener("fullscreenchange", onFsChange);
       exitFullscreen();

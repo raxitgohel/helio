@@ -61,7 +61,7 @@ export async function StreamsScreen({ type, videoId, title }) {
   const status = el.querySelector(".status");
   let loaded = false;
 
-  const play = (stream) => Router.push(PlayerScreen, { stream });
+  const play = (stream) => Router.push(PlayerScreen, { stream, type, videoId, title });
   const badge = (q) => `<span class="q-badge${q && q >= 1080 ? " hi" : ""}">${qLabel(q)}</span>`;
 
   function streamRow(item, clickable) {
