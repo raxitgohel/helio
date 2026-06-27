@@ -121,13 +121,12 @@ export function PlayerScreen({ stream }) {
     } catch (_) {}
   }
 
-  let lastProgressAt = Date.now();
   const syncBigplay = () => { bigplay.style.display = video.paused ? "" : "none"; };
 
-  video.addEventListener("playing", () => { hint.classList.add("hidden"); lastProgressAt = Date.now(); refreshUI(); showControls(); syncBigplay(); });
+  video.addEventListener("playing", () => { hint.classList.add("hidden"); refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); });
-  video.addEventListener("timeupdate", () => { lastProgressAt = Date.now(); refreshUI(); });
+  video.addEventListener("timeupdate", refreshUI);
   video.addEventListener("loadedmetadata", refreshUI);
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
@@ -140,16 +139,6 @@ export function PlayerScreen({ stream }) {
   // Tap the video (touch) to reveal controls and start playback if a mobile
   // browser blocked autoplay after the screen transition.
   video.addEventListener("click", () => { if (video.paused) video.play().catch(() => {}); showControls(); });
-
-  // Stall watchdog: trying to play but no progress for a while → the stream is
-  // likely too heavy for this connection; say so actionably instead of an
-  // endless "Buffering…".
-  const stallTimer = setInterval(() => {
-    if (!video.paused && video.readyState < 3 && Date.now() - lastProgressAt > 20000) {
-      hint.classList.remove("hidden");
-      hint.textContent = "Still buffering — this stream may be too heavy for your connection. Press Back and try a lower-quality source.";
-    }
-  }, 5000);
 
   // Click anywhere on the progress bar to jump to that point.
   const progress = el.querySelector(".pc-progress");
@@ -206,7 +195,6 @@ export function PlayerScreen({ stream }) {
     },
     destroy() {
       clearTimeout(hideTimer);
-      clearInterval(stallTimer);
       document.removeEventListener("fullscreenchange", onFsChange);
       exitFullscreen();
       engine.destroy(video);
