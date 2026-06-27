@@ -181,7 +181,14 @@ export const Addons = {
       infoHash: s.infoHash || null, // torrents: not supported in Cycle 1
       ytId: s.ytId || null,
       behaviorHints: s.behaviorHints || null,
+      subtitles: Array.isArray(s.subtitles) ? s.subtitles : [], // sidecar subs
     }));
+  },
+
+  async subtitlesFromAddon(base, type, videoId) {
+    const b = canonicalize(base);
+    const data = await getJson(`${b}/subtitles/${type}/${enc(videoId)}.json`, { timeout: 12000 });
+    return (data.subtitles || []).map((s) => ({ id: s.id || null, url: s.url || null, lang: s.lang || s.language || "??" }));
   },
 
   // Query EVERY installed addon that exposes a `stream` resource for this type,

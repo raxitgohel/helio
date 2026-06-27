@@ -5,6 +5,7 @@
 import { Platform } from "./platform.js";
 import { icon } from "./ui/icons.js";
 import { WatchProgress } from "./data/watchProgress.js";
+import { fetchCues, activeCueText, gatherSubtitles } from "./core/subtitles.js";
 
 const isHls = (u) => /\.m3u8(\?|#|$)/i.test(String(u || ""));
 
@@ -58,14 +59,22 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   el.className = "screen player-screen";
   el.innerHTML = `
     <video class="player-video" playsinline></video>
+    <div class="player-subs"></div>
     <div class="player-controls">
       <div class="pc-progress"><div class="pc-fill"></div></div>
       <div class="pc-buttons">
         <button class="pc-btn pc-seek" type="button" aria-label="Back 10 seconds">${icon("rewind", 22)}<span>10</span></button>
         <button class="pc-btn pc-play" type="button" aria-label="Play">${icon("play", 26)}</button>
         <button class="pc-btn pc-seek" type="button" aria-label="Forward 10 seconds"><span>10</span>${icon("forward", 22)}</button>
+        <button class="pc-btn pc-opts" type="button" aria-label="Audio & subtitles">${icon("settings", 22)}</button>
       </div>
       <div class="pc-meta"><span class="pc-time">0:00 / 0:00</span></div>
+    </div>
+    <div class="player-panel" hidden>
+      <div class="panel-sec panel-subs">
+        <div class="panel-h">Subtitles</div>
+        <div class="panel-list" data-k="subs"></div>
+      </div>
     </div>
     <button class="player-bigplay focusable" type="button" aria-label="Play">${icon("play", 40)}</button>
     <div class="player-upnext" hidden>
@@ -88,6 +97,10 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   const upnextEl = el.querySelector(".player-upnext");
   const upnextLabel = el.querySelector(".upnext-label");
   const upnextPlay = el.querySelector(".upnext-play");
+  const subOverlay = el.querySelector(".player-subs");
+  const optsBtn = el.querySelector(".pc-opts");
+  const panel = el.querySelector(".player-panel");
+  const subList = el.querySelector('[data-k="subs"]');
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -127,6 +140,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
     const d = Number(video.duration) || 0;
     if (d > 0) video.currentTime = Math.min(d - 0.5, Math.max(0, (Number(video.currentTime) || 0) + delta));
     refreshUI();
+    renderSubs();
     showControls();
   }
   function enterFullscreen() {
@@ -143,6 +157,48 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
     try {
       if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     } catch (_) {}
+  }
+
+  // ----- subtitles -----
+  let subCues = null;   // active track's parsed cues, or null = off
+  let subOffset = 0;    // seconds; +ve = show later (manual A/V sync, Piece 5)
+  let subTracks = [];
+  let activeSubId = null;
+
+  function renderSubs() {
+    subOverlay.textContent = subCues ? activeCueText(subCues, video.currentTime, subOffset) : "";
+  }
+  function buildSubList() {
+    subList.innerHTML = "";
+    const off = document.createElement("button");
+    off.className = "focusable panel-opt" + (activeSubId == null ? " active" : "");
+    off.textContent = "Off";
+    off.onclick = () => selectSub(null);
+    subList.appendChild(off);
+    subTracks.forEach((t) => {
+      const b = document.createElement("button");
+      b.className = "focusable panel-opt" + (t.id === activeSubId ? " active" : "");
+      b.textContent = String(t.lang || "??").toUpperCase();
+      b.onclick = () => selectSub(t);
+      subList.appendChild(b);
+    });
+    if (subTracks.length === 0) {
+      const none = document.createElement("div");
+      none.className = "panel-empty";
+      none.textContent = "No subtitles found.";
+      subList.appendChild(none);
+    }
+  }
+  async function selectSub(track) {
+    if (!track) { subCues = null; activeSubId = null; subOverlay.textContent = ""; buildSubList(); return; }
+    activeSubId = track.id; buildSubList();
+    try { subCues = await fetchCues(track.url); renderSubs(); }
+    catch (_) { subCues = null; subOverlay.textContent = ""; }
+  }
+  async function loadSubtitleTracks() {
+    buildSubList();
+    try { subTracks = await gatherSubtitles(type, videoId, stream); } catch (_) { subTracks = []; }
+    buildSubList();
   }
 
   const syncBigplay = () => { bigplay.style.display = video.paused ? "" : "none"; };
@@ -173,7 +229,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   video.addEventListener("playing", () => { hint.classList.add("hidden"); refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); saveProgress(); });
-  video.addEventListener("timeupdate", () => { refreshUI(); const now = Date.now(); if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); } });
+  video.addEventListener("timeupdate", () => { refreshUI(); renderSubs(); const now = Date.now(); if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); } });
   video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); });
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
@@ -188,6 +244,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   });
 
   upnextPlay.onclick = () => { if (upNext) upNext.go(); };
+  optsBtn.onclick = () => { panel.hidden = !panel.hidden; showControls(); };
   bigplay.onclick = () => { video.play().catch(() => {}); showControls(); };
   playBtn.onclick = () => { togglePlay(); showControls(); };
   seekBackBtn.onclick = () => seek(-10);
@@ -226,6 +283,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
     },
     onEnter() {
       enterFullscreen();
+      loadSubtitleTracks();
       if (!url) {
         hint.classList.remove("hidden");
         hint.textContent = "This stream has no direct URL (torrent/debrid isn't supported in Cycle 1).";
