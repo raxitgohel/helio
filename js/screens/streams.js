@@ -10,6 +10,7 @@ import { Addons } from "../addons.js";
 import { Platform } from "../platform.js";
 import { PlayerScreen } from "../player.js";
 import { icon } from "../ui/icons.js";
+import { parseLanguages } from "../core/streamLang.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -47,6 +48,7 @@ function isLikelyMobile() {
 const enrich = (s, addonName) => ({
   ...s, addonName,
   quality: parseQuality(s), size: parseSize(s), hdr: hasHDR(s), playable: isPlayable(s),
+  langs: parseLanguages(s),
 });
 
 export async function StreamsScreen({ type, videoId, title, episodes, episodeIndex }) {
@@ -80,12 +82,16 @@ export async function StreamsScreen({ type, videoId, title, episodes, episodeInd
     const row = document.createElement(clickable ? "button" : "div");
     row.className = "stream-row" + (clickable ? " focusable" : " is-disabled");
     const meta = [item.addonName, item.size, item.hdr ? "HDR" : null].filter(Boolean).join(" · ");
+    const langChips = (item.langs && item.langs.length)
+      ? `<span class="stream-langs">${item.langs.map((l) => `<span class="lang-chip">${escapeHtml(l)}</span>`).join("")}</span>`
+      : "";
     row.innerHTML = `
       ${badge(item.quality)}
       <span class="stream-main">
         <span class="stream-name">${escapeHtml(item.title || item.name || "Stream")}</span>
         <span class="stream-sub">${escapeHtml(meta)}</span>
       </span>
+      ${langChips}
       ${clickable ? "" : '<span class="stream-tag">needs debrid</span>'}`;
     if (clickable) row.onclick = () => play(item);
     return row;
@@ -127,7 +133,7 @@ export async function StreamsScreen({ type, videoId, title, episodes, episodeInd
         <span class="rec-main">
           <span class="rec-label">Recommended</span>
           <span class="rec-name">${escapeHtml(rec.title || rec.name || "Stream")}</span>
-          <span class="rec-sub">${escapeHtml([qLabel(rec.quality) + (rec.quality ? "" : " quality"), rec.addonName, rec.size].filter(Boolean).join(" · "))} — best fit for your screen</span>
+          <span class="rec-sub">${escapeHtml([qLabel(rec.quality) + (rec.quality ? "" : " quality"), (rec.langs && rec.langs.length ? rec.langs.join("/") : null), rec.addonName, rec.size].filter(Boolean).join(" · "))} — best fit for your screen</span>
         </span>
         <span class="rec-play">${icon("play", 20)}<span>Play</span></span>`;
       card.onclick = () => play(rec);

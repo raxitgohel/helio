@@ -302,6 +302,8 @@ html, body {
 .stream-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stream-sub { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stream-row.is-disabled { opacity: .55; cursor: default; box-shadow: none; }
+.stream-langs { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; max-width: 160px; }
+.lang-chip { font-size: 11px; font-weight: 700; letter-spacing: .03em; background: var(--bg-elev-2); color: var(--text-dim); border-radius: 6px; padding: 3px 7px; }
 
 /* ---------- Player (overlay over video — stays dark) ---------- */
 .player-screen { padding: 0; background: #000; position: fixed; inset: 0; width: 100vw; height: 100vh; }

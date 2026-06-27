@@ -176,6 +176,7 @@ export const Addons = {
     return (data.streams || []).map((s) => ({
       name: s.name || null,
       title: s.title || s.name || "Stream",
+      description: s.description || null,
       url: s.url || null,
       externalUrl: s.externalUrl || null,
       infoHash: s.infoHash || null, // torrents: not supported in Cycle 1
