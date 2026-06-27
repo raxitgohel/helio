@@ -73,13 +73,15 @@ export async function DetailScreen({ addon, type, id, name }) {
         };
         const renderEpisodes = () => {
           list.innerHTML = "";
-          (bySeason.get(activeSeason) || []).forEach((v) => {
+          const eps = bySeason.get(activeSeason) || [];
+          eps.forEach((v, idx) => {
             const btn = document.createElement("button");
             btn.className = "focusable ep";
             const epPrefix = v.episode != null ? `E${v.episode} · ` : "";
             btn.textContent = `${epPrefix}${v.name || v.title || v.id}`;
             const fullTitle = `S${activeSeason}E${v.episode != null ? v.episode : ""} ${v.name || v.title || ""}`.trim();
-            btn.onclick = () => Router.push(StreamsScreen, { type, videoId: v.id, title: fullTitle });
+            // Pass the season list + index so the player can offer the next episode.
+            btn.onclick = () => Router.push(StreamsScreen, { type, videoId: v.id, title: fullTitle, episodes: eps, episodeIndex: idx });
             list.appendChild(btn);
           });
         };

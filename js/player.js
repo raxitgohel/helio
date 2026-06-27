@@ -53,7 +53,7 @@ function fmtTime(total) {
 
 // Screen factory — pushed onto the router like any other screen, so Back exits
 // playback and destroy() tears the engine down.
-export function PlayerScreen({ stream, type, videoId, title } = {}) {
+export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   const el = document.createElement("div");
   el.className = "screen player-screen";
   el.innerHTML = `
@@ -68,6 +68,10 @@ export function PlayerScreen({ stream, type, videoId, title } = {}) {
       <div class="pc-meta"><span class="pc-time">0:00 / 0:00</span></div>
     </div>
     <button class="player-bigplay focusable" type="button" aria-label="Play">${icon("play", 40)}</button>
+    <div class="player-upnext" hidden>
+      <span class="upnext-label"></span>
+      <button class="upnext-play focusable" type="button">${icon("play", 18)}<span>Play next</span></button>
+    </div>
     <div class="player-hint">Loading…</div>
   `;
 
@@ -81,6 +85,9 @@ export function PlayerScreen({ stream, type, videoId, title } = {}) {
   const timeEl = el.querySelector(".pc-time");
   const hint = el.querySelector(".player-hint");
   const bigplay = el.querySelector(".player-bigplay");
+  const upnextEl = el.querySelector(".player-upnext");
+  const upnextLabel = el.querySelector(".upnext-label");
+  const upnextPlay = el.querySelector(".upnext-play");
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -170,7 +177,17 @@ export function PlayerScreen({ stream, type, videoId, title } = {}) {
   video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); });
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
+  video.addEventListener("ended", () => {
+    saveProgress();
+    if (upNext) {
+      upnextLabel.textContent = `Up next: ${upNext.label}`;
+      upnextEl.hidden = false;
+      bigplay.style.display = "none";
+      showControls();
+    }
+  });
 
+  upnextPlay.onclick = () => { if (upNext) upNext.go(); };
   bigplay.onclick = () => { video.play().catch(() => {}); showControls(); };
   playBtn.onclick = () => { togglePlay(); showControls(); };
   seekBackBtn.onclick = () => seek(-10);

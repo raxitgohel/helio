@@ -345,6 +345,20 @@ html, body {
 }
 .player-bigplay .icon { width: 42px; height: 42px; }
 
+/* "Up next" prompt shown when an episode ends. */
+.player-upnext {
+  position: absolute; right: 28px; bottom: 122px;
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(0,0,0,.8); color: #fff; padding: 14px 18px; border-radius: 14px;
+}
+.player-upnext[hidden] { display: none; }
+.upnext-label { font-size: 15px; max-width: 260px; }
+.upnext-play {
+  display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+  background: var(--accent); color: var(--accent-ink); border: none;
+  border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer;
+}
+
 /* ---------- Mobile (<= 640px) ---------- */
 @media (max-width: 640px) {
   .screen { padding: 16px 14px 40px; }

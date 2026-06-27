@@ -49,7 +49,19 @@ const enrich = (s, addonName) => ({
   quality: parseQuality(s), size: parseSize(s), hdr: hasHDR(s), playable: isPlayable(s),
 });
 
-export async function StreamsScreen({ type, videoId, title }) {
+export async function StreamsScreen({ type, videoId, title, episodes, episodeIndex }) {
+  // If this is a series episode with a following one, build an "up next" the
+  // player can offer when the current episode ends (chains through the season).
+  let upNext = null;
+  if (Array.isArray(episodes) && episodeIndex != null && episodes[episodeIndex + 1]) {
+    const nx = episodes[episodeIndex + 1];
+    const nxTitle = `S${nx.season != null ? nx.season : ""}E${nx.episode != null ? nx.episode : ""} ${nx.name || nx.title || ""}`.trim();
+    upNext = {
+      label: nxTitle,
+      go: () => Router.push(StreamsScreen, { type, videoId: nx.id, title: nxTitle, episodes, episodeIndex: episodeIndex + 1 }),
+    };
+  }
+
   const el = document.createElement("div");
   el.className = "screen streams-screen";
   el.innerHTML = `
@@ -61,7 +73,7 @@ export async function StreamsScreen({ type, videoId, title }) {
   const status = el.querySelector(".status");
   let loaded = false;
 
-  const play = (stream) => Router.push(PlayerScreen, { stream, type, videoId, title });
+  const play = (stream) => Router.push(PlayerScreen, { stream, type, videoId, title, upNext });
   const badge = (q) => `<span class="q-badge${q && q >= 1080 ? " hi" : ""}">${qLabel(q)}</span>`;
 
   function streamRow(item, clickable) {
