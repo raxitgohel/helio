@@ -71,6 +71,10 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
       <div class="pc-meta"><span class="pc-time">0:00 / 0:00</span></div>
     </div>
     <div class="player-panel" hidden>
+      <div class="panel-sec panel-audio" hidden>
+        <div class="panel-h">Audio / language</div>
+        <div class="panel-list" data-k="audio"></div>
+      </div>
       <div class="panel-sec panel-subs">
         <div class="panel-h">Subtitles</div>
         <div class="panel-list" data-k="subs"></div>
@@ -111,6 +115,8 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   const panel = el.querySelector(".player-panel");
   const subList = el.querySelector('[data-k="subs"]');
   const syncVal = el.querySelector(".sync-val");
+  const audioSec = el.querySelector(".panel-audio");
+  const audioList = el.querySelector('[data-k="audio"]');
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -211,6 +217,46 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
     buildSubList();
   }
 
+  // ----- audio tracks (video language) -----
+  function getAudioTracks() {
+    if (hls && hls.audioTracks && hls.audioTracks.length) {
+      return hls.audioTracks.map((t, i) => ({ id: i, label: t.name || t.lang || `Track ${i + 1}`, lang: t.lang || "" }));
+    }
+    const at = video.audioTracks;
+    if (at && at.length) {
+      const out = [];
+      for (let i = 0; i < at.length; i++) out.push({ id: i, label: at[i].label || at[i].language || `Track ${i + 1}`, lang: at[i].language || "" });
+      return out;
+    }
+    return [];
+  }
+  function currentAudioId() {
+    if (hls && hls.audioTracks && hls.audioTracks.length) return hls.audioTrack;
+    const at = video.audioTracks;
+    if (at) { for (let i = 0; i < at.length; i++) if (at[i].enabled) return i; }
+    return 0;
+  }
+  function setAudioTrack(id) {
+    if (hls && hls.audioTracks && hls.audioTracks.length) { try { hls.audioTrack = id; } catch (_) {} }
+    else { const at = video.audioTracks; if (at) for (let i = 0; i < at.length; i++) at[i].enabled = (i === id); }
+    buildAudioList();
+  }
+  function buildAudioList() {
+    const tracks = getAudioTracks();
+    if (tracks.length <= 1) { audioSec.hidden = true; return; } // hide when there's nothing to switch
+    audioSec.hidden = false;
+    const cur = currentAudioId();
+    audioList.innerHTML = "";
+    tracks.forEach((t) => {
+      const b = document.createElement("button");
+      b.className = "focusable panel-opt" + (t.id === cur ? " active" : "");
+      b.textContent = t.lang ? String(t.lang).toUpperCase() : t.label;
+      b.title = t.label;
+      b.onclick = () => setAudioTrack(t.id);
+      audioList.appendChild(b);
+    });
+  }
+
   const syncBigplay = () => { bigplay.style.display = video.paused ? "" : "none"; };
 
   // ----- resume / continue-watching position -----
@@ -240,7 +286,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); saveProgress(); });
   video.addEventListener("timeupdate", () => { refreshUI(); renderSubs(); const now = Date.now(); if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); } });
-  video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); });
+  video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); buildAudioList(); });
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });
   video.addEventListener("error", showPlaybackError);
   video.addEventListener("ended", () => {
@@ -254,7 +300,7 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
   });
 
   upnextPlay.onclick = () => { if (upNext) upNext.go(); };
-  optsBtn.onclick = () => { panel.hidden = !panel.hidden; showControls(); };
+  optsBtn.onclick = () => { panel.hidden = !panel.hidden; buildAudioList(); showControls(); };
   const updateSync = () => { syncVal.textContent = `${subOffset > 0 ? "+" : ""}${subOffset.toFixed(2)}s`; renderSubs(); };
   el.querySelector(".sync-dec").onclick = () => { subOffset = Math.round((subOffset - 0.25) * 100) / 100; updateSync(); };
   el.querySelector(".sync-inc").onclick = () => { subOffset = Math.round((subOffset + 0.25) * 100) / 100; updateSync(); };
