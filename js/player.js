@@ -5,24 +5,40 @@
 import { Platform } from "./platform.js";
 import { icon } from "./ui/icons.js";
 
-// Engine interface: { name, canPlay(url), load(video, url) -> Promise, destroy(video) }
-const nativeEngine = {
-  name: "native",
-  canPlay() { return true; }, // Cycle 1: let the browser/TV webview try anything.
-  load(video, url) {
-    video.src = url;
-    video.load();
-    return video.play();
-  },
-  destroy(video) {
-    try { video.pause(); } catch (_) {}
-    video.removeAttribute("src");
-    try { video.load(); } catch (_) {}
-  },
-};
+const isHls = (u) => /\.m3u8(\?|#|$)/i.test(String(u || ""));
 
-function pickEngine(/* url, capabilities */) {
-  return nativeEngine; // Cycle 2+: hls.js for .m3u8, AVPlay on Tizen, etc.
+// Lazily load hls.js from a CDN, once.
+function loadHlsLib() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  if (loadHlsLib._p) return loadHlsLib._p;
+  loadHlsLib._p = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js";
+    s.onload = () => resolve(window.Hls || null);
+    s.onerror = () => reject(new Error("hls.js failed to load"));
+    document.head.appendChild(s);
+  });
+  return loadHlsLib._p;
+}
+
+// Attach a stream URL to the <video>. HLS (.m3u8) uses native HLS on Safari/iOS,
+// or hls.js everywhere else; progressive (mp4/webm/…) uses the element directly.
+// Returns the hls.js instance if one was created (for track APIs), else null.
+async function attachSource(video, url) {
+  if (isHls(url) && video.canPlayType("application/vnd.apple.mpegurl") === "") {
+    try {
+      const Hls = await loadHlsLib();
+      if (Hls && Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: true });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        return hls;
+      }
+    } catch (_) { /* fall through to native */ }
+  }
+  video.src = url;
+  video.load();
+  return null;
 }
 
 function fmtTime(total) {
@@ -67,7 +83,7 @@ export function PlayerScreen({ stream }) {
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
-  const engine = pickEngine();
+  let hls = null; // hls.js instance, when used
   let hideTimer = 0;
 
   // A browser blocks an http:// stream inside an https:// page ("mixed content").
@@ -174,7 +190,8 @@ export function PlayerScreen({ stream }) {
         hint.textContent = "This stream has no direct URL (torrent/debrid isn't supported in Cycle 1).";
         return;
       }
-      Promise.resolve(engine.load(video, url))
+      attachSource(video, url)
+        .then((instance) => { hls = instance; return video.play(); })
         .then(() => showControls())
         .catch(() => {
           if (isHttpOnHttps()) { showPlaybackError(); return; }
@@ -197,7 +214,10 @@ export function PlayerScreen({ stream }) {
       clearTimeout(hideTimer);
       document.removeEventListener("fullscreenchange", onFsChange);
       exitFullscreen();
-      engine.destroy(video);
+      if (hls) { try { hls.destroy(); } catch (_) {} hls = null; }
+      try { video.pause(); } catch (_) {}
+      video.removeAttribute("src");
+      try { video.load(); } catch (_) {}
     },
   };
 }
