@@ -2,6 +2,7 @@
 // dedicated home for addon-link pasting — it no longer lives on the Home screen.
 import { Router } from "../main.js";
 import { Addons } from "../addons.js";
+import { Profiles } from "../store.js";
 import { Theme } from "../theme.js";
 import { Platform } from "../platform.js";
 import { AddAddonScreen } from "./addAddon.js";
@@ -12,6 +13,12 @@ export async function SettingsScreen() {
   el.className = "screen settings-screen";
   el.innerHTML = `
     <h2 class="settings-title">Settings</h2>
+
+    <section class="settings-section">
+      <h3 class="settings-h">Profiles</h3>
+      <p class="settings-hint">Each profile keeps its own addons, watchlist, progress, and theme. Switching reloads the app.</p>
+      <div class="profile-list" id="profile-list"></div>
+    </section>
 
     <section class="settings-section">
       <h3 class="settings-h">Appearance</h3>
@@ -28,7 +35,45 @@ export async function SettingsScreen() {
     </section>
   `;
 
+  const profileList = el.querySelector("#profile-list");
   const themeList = el.querySelector("#theme-list");
+
+  // ---- Profiles ----
+  function renderProfiles() {
+    profileList.innerHTML = "";
+    const activeId = Profiles.activeId();
+    Profiles.list().forEach((p) => {
+      const isActive = String(p.id) === activeId;
+      const chip = document.createElement("div");
+      chip.className = "chip profile-chip" + (isActive ? " active" : "");
+      const btn = document.createElement("button");
+      btn.className = "focusable profile-name";
+      btn.type = "button";
+      btn.innerHTML = `${isActive ? icon("check", 14) : ""}<span>${p.name}</span>`;
+      btn.onclick = () => {
+        if (isActive) return;
+        Profiles.setActive(p.id);
+        location.reload(); // simplest correct way to re-read every store under the new profile
+      };
+      chip.appendChild(btn);
+      if (!isActive) {
+        const rm = document.createElement("button");
+        rm.className = "focusable chip-remove";
+        rm.type = "button";
+        rm.innerHTML = icon("close", 14);
+        rm.title = `Remove ${p.name} (deletes its data)`;
+        rm.onclick = () => { Profiles.remove(p.id); renderProfiles(); };
+        chip.appendChild(rm);
+      }
+      profileList.appendChild(chip);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.className = "focusable btn";
+    addBtn.type = "button";
+    addBtn.innerHTML = `${icon("plus")}<span>Add profile</span>`;
+    addBtn.onclick = () => { Profiles.add(); renderProfiles(); };
+    profileList.appendChild(addBtn);
+  }
   const addonAdd = el.querySelector("#addon-add");
   const addonList = el.querySelector("#addon-list");
   const status = el.querySelector("#s-status");
@@ -107,6 +152,7 @@ export async function SettingsScreen() {
   }
 
   let lastSig = JSON.stringify(Addons.list());
+  renderProfiles();
   renderThemes();
   renderAddControl();
   loadAddonList();
