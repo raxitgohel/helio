@@ -54,7 +54,7 @@ function fmtTime(total) {
 
 // Screen factory — pushed onto the router like any other screen, so Back exits
 // playback and destroy() tears the engine down.
-export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
+export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = {}) {
   const el = document.createElement("div");
   el.className = "screen player-screen";
   el.innerHTML = `
@@ -267,7 +267,8 @@ export function PlayerScreen({ stream, type, videoId, title, upNext } = {}) {
     const t = Number(video.currentTime) || 0;
     const d = Number(video.duration) || 0;
     if (t < 5) return;
-    WatchProgress.save({ type, id: videoId, t, d, title });
+    // Persist the stream too, so Continue Watching can resume in one tap.
+    WatchProgress.save({ type, id: videoId, t, d, title, poster, stream });
   }
   function maybeResume() {
     if (resumed || !videoId) return;

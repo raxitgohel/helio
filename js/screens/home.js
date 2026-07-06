@@ -8,8 +8,11 @@ import { DetailScreen } from "./detail.js";
 import { SearchScreen } from "./search.js";
 import { CatalogScreen } from "./catalog.js";
 import { SettingsScreen } from "./settings.js";
+import { PlayerScreen } from "../player.js";
 import { makeCard, makeSkeleton } from "../ui/card.js";
 import { icon } from "../ui/icons.js";
+import { Watchlist } from "../data/watchlist.js";
+import { WatchProgress } from "../data/watchProgress.js";
 
 const PREVIEW_COUNT = 12;
 const TYPE_FILTERS = [
@@ -28,11 +31,13 @@ export async function HomeScreen() {
       <button id="search-btn" class="focusable btn">${icon("search")}<span>Search</span></button>
       <button id="settings-btn" class="focusable btn">${icon("settings")}<span>Settings</span></button>
     </header>
+    <div id="personal" class="board personal"></div>
     <div id="filters" class="filters"></div>
     <div id="board" class="board"></div>
     <div id="status" class="status"></div>
   `;
 
+  const personal = el.querySelector("#personal");
   const filters = el.querySelector("#filters");
   const board = el.querySelector("#board");
   const status = el.querySelector("#status");
@@ -49,6 +54,54 @@ export async function HomeScreen() {
     id: meta.id,
     name: meta.name,
   });
+
+  // ----- personal rows: Continue watching + My list (re-rendered on every return) -----
+  function personalSection(titleText) {
+    const section = document.createElement("section");
+    section.className = "board-section";
+    section.innerHTML = `<div class="section-head"><h3 class="section-title">${titleText}</h3></div><div class="grid"></div>`;
+    return { section, grid: section.querySelector(".grid") };
+  }
+
+  function renderPersonal() {
+    personal.innerHTML = "";
+
+    // Continue watching — entries need a saved stream to be resumable in one tap.
+    const cw = WatchProgress.list(12).filter((e) => e.stream && (e.stream.url || e.stream.externalUrl));
+    if (cw.length) {
+      const { section, grid } = personalSection("Continue watching");
+      cw.forEach((e) => {
+        const wrap = document.createElement("div");
+        wrap.className = "cw-card";
+        const card = makeCard({ name: e.title, poster: e.poster }, () =>
+          Router.push(PlayerScreen, { stream: e.stream, type: e.type, videoId: e.id, title: e.title, poster: e.poster }));
+        const bar = document.createElement("div");
+        bar.className = "cw-bar";
+        bar.innerHTML = `<span style="width:${Math.min(100, Math.round((e.t / (e.d || 1)) * 100))}%"></span>`;
+        const rm = document.createElement("button");
+        rm.className = "focusable cw-remove";
+        rm.type = "button";
+        rm.innerHTML = icon("close", 13);
+        rm.title = "Remove from Continue watching";
+        rm.onclick = (ev) => { ev.stopPropagation(); WatchProgress.remove(e.type, e.id); renderPersonal(); };
+        wrap.appendChild(card);
+        wrap.appendChild(bar);
+        wrap.appendChild(rm);
+        grid.appendChild(wrap);
+      });
+      personal.appendChild(section);
+    }
+
+    const wl = Watchlist.list();
+    if (wl.length) {
+      const { section, grid } = personalSection("My list");
+      wl.forEach((e) => {
+        grid.appendChild(makeCard({ name: e.name, poster: e.poster }, () =>
+          Router.push(DetailScreen, { addon: { baseUrl: e.addonBaseUrl }, type: e.type, id: e.id, name: e.name })));
+      });
+      personal.appendChild(section);
+    }
+  }
 
   async function renderSection(entry) {
     const section = document.createElement("section");
@@ -134,6 +187,7 @@ export async function HomeScreen() {
   return {
     el,
     onEnter() {
+      renderPersonal(); // cheap + local; picks up new progress/watchlist on every return
       // (Re)load when first shown, or when the installed-addon list changed
       // since we last rendered (e.g. returning from Settings after adding one).
       const sig = JSON.stringify(Addons.list());

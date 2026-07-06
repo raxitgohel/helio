@@ -17,7 +17,8 @@ export const WatchProgress = {
     const all = this.all();
     all[k(entry.type, entry.id)] = {
       type: entry.type, id: entry.id, title: entry.title || "",
-      poster: entry.poster || null, t: Math.round(entry.t), d: Math.round(entry.d || 0),
+      poster: entry.poster || null, stream: entry.stream || null,
+      t: Math.round(entry.t), d: Math.round(entry.d || 0),
       ts: Date.now(),
     };
     Store.set(KEY, all);

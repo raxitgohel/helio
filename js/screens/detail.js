@@ -3,6 +3,8 @@
 import { Router } from "../main.js";
 import { Addons } from "../addons.js";
 import { StreamsScreen } from "./streams.js";
+import { Watchlist } from "../data/watchlist.js";
+import { icon } from "../ui/icons.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -38,6 +40,19 @@ export async function DetailScreen({ addon, type, id, name }) {
       metaEl.textContent = [meta.releaseInfo, (meta.genres || []).slice(0, 3).join(", ")]
         .filter(Boolean).join("  ·  ");
       descEl.textContent = meta.description || "";
+
+      // Watchlist toggle (movies and series alike).
+      const wlEntry = { type, id, name: meta.name, poster: meta.poster, addonBaseUrl: addon.baseUrl };
+      const wlBtn = document.createElement("button");
+      wlBtn.className = "focusable btn";
+      const paintWl = (on) => {
+        wlBtn.innerHTML = on
+          ? `${icon("check")}<span>In my list</span>`
+          : `${icon("plus")}<span>My list</span>`;
+      };
+      paintWl(Watchlist.has(type, id));
+      wlBtn.onclick = () => paintWl(Watchlist.toggle(wlEntry));
+      actions.appendChild(wlBtn);
 
       const isSeries = type === "series" || (meta.videos && meta.videos.length > 0);
       if (isSeries && meta.videos.length) {
@@ -81,7 +96,7 @@ export async function DetailScreen({ addon, type, id, name }) {
             btn.textContent = `${epPrefix}${v.name || v.title || v.id}`;
             const fullTitle = `S${activeSeason}E${v.episode != null ? v.episode : ""} ${v.name || v.title || ""}`.trim();
             // Pass the season list + index so the player can offer the next episode.
-            btn.onclick = () => Router.push(StreamsScreen, { type, videoId: v.id, title: fullTitle, episodes: eps, episodeIndex: idx });
+            btn.onclick = () => Router.push(StreamsScreen, { type, videoId: v.id, title: fullTitle, poster: meta.poster, episodes: eps, episodeIndex: idx });
             list.appendChild(btn);
           });
         };
@@ -90,11 +105,11 @@ export async function DetailScreen({ addon, type, id, name }) {
       } else {
         const play = document.createElement("button");
         play.className = "focusable btn btn-primary";
-        play.textContent = "Find streams";
+        play.innerHTML = `${icon("play", 18)}<span>Find streams</span>`;
         play.onclick = () => Router.push(StreamsScreen, {
-          type, videoId: id, title: meta.name,
+          type, videoId: id, title: meta.name, poster: meta.poster,
         });
-        actions.appendChild(play);
+        actions.prepend(play); // primary action first, watchlist second
       }
     } catch (e) {
       descEl.textContent = `Failed to load details: ${e.message}`;

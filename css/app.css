@@ -187,6 +187,22 @@ html, body {
 
 .status { margin-top: 18px; color: var(--text-dim); font-size: 16px; }
 
+/* ---------- Personal rows (Continue watching / My list) ---------- */
+.personal { margin-bottom: clamp(20px, 3vh, 32px); }
+.personal:empty { display: none; }
+.cw-card { position: relative; }
+.cw-bar {
+  position: absolute; left: 8px; right: 8px; bottom: 42px;
+  height: 5px; border-radius: 3px; background: rgba(0,0,0,.45); overflow: hidden;
+}
+.cw-bar span { display: block; height: 100%; background: var(--accent); }
+.cw-remove {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,.6); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
 /* ---------- Section / board ---------- */
 .board { display: flex; flex-direction: column; gap: clamp(24px, 3vh, 38px); }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
