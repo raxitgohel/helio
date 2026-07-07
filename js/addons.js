@@ -117,6 +117,7 @@ export const Addons = {
       type: m.type || type,
       name: m.name || "Untitled",
       poster: m.poster || null,
+      background: m.background || null, // wide art, used by the home hero
       description: m.description || "",
       releaseInfo: m.releaseInfo || "",
     }));

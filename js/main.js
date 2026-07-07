@@ -7,6 +7,7 @@
 import { Platform } from "./platform.js";
 import { Input } from "./input.js";
 import { Theme } from "./theme.js";
+import { icon } from "./ui/icons.js";
 import { HomeScreen } from "./screens/home.js";
 
 const appEl = document.getElementById("app");
@@ -47,6 +48,20 @@ export const Router = {
   _mount(screen) {
     appEl.innerHTML = "";
     if (!screen) return;
+    // In-app back button on every non-root screen (the player draws its own,
+    // inside its auto-hiding controls). Appended last so it never steals the
+    // initial focus from the screen's content.
+    if (stack.length > 1 && !screen.el.classList.contains("player-screen") && !screen.el.dataset.navBack) {
+      screen.el.dataset.navBack = "1";
+      screen.el.classList.add("has-back");
+      const b = document.createElement("button");
+      b.className = "focusable nav-back";
+      b.type = "button";
+      b.setAttribute("aria-label", "Back");
+      b.innerHTML = icon("chevronLeft", 22);
+      b.onclick = () => this.back();
+      screen.el.appendChild(b);
+    }
     appEl.appendChild(screen.el);
     if (screen.onEnter) screen.onEnter();
     Input.refocus(screen.el);

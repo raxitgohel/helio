@@ -3,6 +3,7 @@
 // slot in later without touching the player screen.
 
 import { Platform } from "./platform.js";
+import { Router } from "./main.js";
 import { icon } from "./ui/icons.js";
 import { WatchProgress } from "./data/watchProgress.js";
 import { fetchCues, activeCueText, gatherSubtitles } from "./core/subtitles.js";
@@ -60,6 +61,10 @@ export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = 
   el.innerHTML = `
     <video class="player-video" playsinline></video>
     <div class="player-subs"></div>
+    <div class="player-top">
+      <button class="pc-btn player-back" type="button" aria-label="Back">${icon("chevronLeft", 22)}</button>
+      <span class="player-title"></span>
+    </div>
     <div class="player-controls">
       <div class="pc-progress"><div class="pc-fill"></div></div>
       <div class="pc-buttons">
@@ -117,6 +122,9 @@ export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = 
   const syncVal = el.querySelector(".sync-val");
   const audioSec = el.querySelector(".panel-audio");
   const audioList = el.querySelector('[data-k="audio"]');
+  const playerTop = el.querySelector(".player-top");
+  el.querySelector(".player-title").textContent = title || (stream && (stream.title || stream.name)) || "";
+  el.querySelector(".player-back").onclick = () => Router.back();
   video.controls = false;
 
   const url = stream && (stream.url || stream.externalUrl);
@@ -135,10 +143,14 @@ export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = 
       : "Playback error — press Back to exit.";
   }
 
+  const setBarsVisible = (on) => {
+    controls.classList.toggle("visible", on);
+    playerTop.classList.toggle("visible", on);
+  };
   function showControls() {
-    controls.classList.add("visible");
+    setBarsVisible(true);
     clearTimeout(hideTimer);
-    if (!video.paused) hideTimer = setTimeout(() => controls.classList.remove("visible"), 3500);
+    if (!video.paused) hideTimer = setTimeout(() => setBarsVisible(false), 3500);
   }
   function refreshUI() {
     const d = Number(video.duration) || 0;
@@ -285,7 +297,7 @@ export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = 
 
   video.addEventListener("playing", () => { hint.classList.add("hidden"); refreshUI(); showControls(); syncBigplay(); });
   video.addEventListener("play", () => { refreshUI(); showControls(); syncBigplay(); });
-  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); controls.classList.add("visible"); syncBigplay(); saveProgress(); });
+  video.addEventListener("pause", () => { refreshUI(); clearTimeout(hideTimer); setBarsVisible(true); syncBigplay(); saveProgress(); });
   video.addEventListener("timeupdate", () => { refreshUI(); renderSubs(); const now = Date.now(); if (now - lastSaveAt > 5000) { lastSaveAt = now; saveProgress(); } });
   video.addEventListener("loadedmetadata", () => { maybeResume(); refreshUI(); buildAudioList(); });
   video.addEventListener("waiting", () => { hint.classList.remove("hidden"); hint.textContent = "Buffering…"; });

@@ -7,6 +7,8 @@ const PATHS = {
   check: '<polyline points="20 6 9 17 4 12"/>',
   close: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+  chevronLeft: '<polyline points="15 18 9 12 15 6"/>',
+  info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   backspace: '<path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/>',
   play: '<polygon points="6 4 20 12 6 20 6 4"/>',
   pause: '<rect x="6" y="5" width="3.6" height="14" rx="1"/><rect x="14.4" y="5" width="3.6" height="14" rx="1"/>',
