@@ -69,11 +69,12 @@ html, body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* NOTE: no background-attachment:fixed — it forces a giant composited layer
+     and is a known iOS Safari memory/repaint hammer (crash-loops the page). */
   background:
     radial-gradient(80% 50% at 88% -8%, var(--glow-1) 0%, transparent 60%),
     radial-gradient(60% 40% at 4% 0%, var(--glow-2) 0%, transparent 55%),
     var(--bg);
-  background-attachment: fixed;
 }
 
 #app { width: 100%; min-height: 100vh; }
@@ -118,15 +119,17 @@ html, body {
   .kb-key:hover, .chip-remove:hover, .theme-opt:hover { filter: brightness(1.06); }
 }
 
-/* ---------- Loading skeletons ---------- */
+/* ---------- Loading skeletons ----------
+   Opacity pulse only — it composites on the GPU. (A background-position shimmer
+   repaints every frame; with ~100+ skeletons on the Netflix-style home it can
+   crash-loop iOS Safari.) */
 .card-skeleton { pointer-events: none; }
 .poster-skel {
   display: block; width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius);
-  background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-elev-2) 50%, var(--bg-elev) 75%);
-  background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite;
+  background: var(--bg-elev-2); animation: skelpulse 1.4s ease-in-out infinite;
 }
 .title-skel { display: block; height: 12px; margin-top: 8px; width: 80%; border-radius: 4px; background: var(--bg-elev-2); }
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes skelpulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 /* ---------- Buttons / inputs ---------- */
 .btn {

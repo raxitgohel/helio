@@ -15,7 +15,13 @@ import { icon } from "../ui/icons.js";
 import { Watchlist } from "../data/watchlist.js";
 import { WatchProgress } from "../data/watchProgress.js";
 
-const PREVIEW_COUNT = 20; // horizontal rows show a longer slice
+// Horizontal rows show a longer slice on desktop/TV; phones get fewer items —
+// image decode memory is the main iOS Safari crash risk on an 8-row home.
+const isSmallScreen = () => {
+  try { return window.matchMedia("(max-width: 640px)").matches; } catch (_) { return false; }
+};
+const previewCount = () => (isSmallScreen() ? 10 : 20);
+const SKELETON_COUNT = 8;
 const TYPE_FILTERS = [
   { id: "all", label: "All" },
   { id: "movie", label: "Movies" },
@@ -179,11 +185,11 @@ export async function HomeScreen() {
     });
     board.appendChild(section);
 
-    for (let i = 0; i < PREVIEW_COUNT; i++) row.appendChild(makeSkeleton());
+    for (let i = 0; i < SKELETON_COUNT; i++) row.appendChild(makeSkeleton());
 
     try {
       const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
-      const slice = metas.slice(0, PREVIEW_COUNT);
+      const slice = metas.slice(0, previewCount());
       if (slice.length === 0) { section.remove(); return; }
       row.innerHTML = "";
       slice.forEach((meta) => row.appendChild(makeCard(meta, openDetail(meta, entry))));

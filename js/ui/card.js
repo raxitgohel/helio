@@ -10,6 +10,7 @@ export function makeCard(meta, onSelect) {
     const img = document.createElement("img");
     img.className = "poster";
     img.loading = "lazy";
+    img.decoding = "async"; // keep decode off the main thread (mobile Safari)
     img.alt = "";
     img.src = meta.poster;
     // Broken/blocked poster URL → swap in the empty placeholder instead of a
