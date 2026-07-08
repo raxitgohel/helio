@@ -358,6 +358,7 @@ export async function HomeScreen() {
   const topbar = el.querySelector(".topbar");
   let tbTimer = 0;
   let lastInputType = "";
+  let lastMouse = null;
   const wakeTopbar = (ev) => {
     if (!document.contains(el)) return; // home not mounted — ignore global events
     if (ev && ev.type) lastInputType = ev.type;
@@ -370,13 +371,25 @@ export async function HomeScreen() {
       topbar.classList.add("tb-hidden");
     }, 3000);
   };
-  ["scroll", "wheel", "touchstart", "mousemove", "keydown", "click"].forEach((ev) =>
+  // Only REAL user input wakes the bar. No `scroll` (layout shifts, momentum,
+  // and scroll-anchoring fire it without a touch) and no bare `mousemove`
+  // (Chromium re-dispatches it when content changes under the cursor — e.g.
+  // the hero rotating every 8s would keep the bar awake forever).
+  ["pointerdown", "touchstart", "touchmove", "wheel", "keydown"].forEach((ev) =>
     window.addEventListener(ev, wakeTopbar, { passive: true }));
-  wakeTopbar();
+  window.addEventListener("mousemove", (ev) => {
+    if (lastMouse && (Math.abs(ev.clientX - lastMouse.x) > 2 || Math.abs(ev.clientY - lastMouse.y) > 2)) {
+      wakeTopbar(ev);
+    }
+    lastMouse = { x: ev.clientX, y: ev.clientY };
+  }, { passive: true });
+  // NOTE: the initial arm happens in onEnter — at factory time the screen isn't
+  // mounted yet, so document.contains(el) would bail and no hide timer would run.
 
   return {
     el,
     onEnter() {
+      wakeTopbar(); // (re)arm the auto-hide — the screen is mounted now
       renderPersonal(); // cheap + local; picks up new progress/watchlist on every return
       // (Re)load when first shown, or when the installed-addon list changed
       // since we last rendered (e.g. returning from Settings after adding one).
