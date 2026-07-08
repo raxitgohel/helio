@@ -28,6 +28,50 @@ function catalogSupportsSearch(c) {
   return false;
 }
 
+// Genre options a catalog can be filtered by (the `genre` extra's options).
+function catalogGenres(c) {
+  if (Array.isArray(c.extra)) {
+    const g = c.extra.find((e) => e && e.name === "genre");
+    if (g && Array.isArray(g.options)) return g.options.filter(Boolean);
+  }
+  if (Array.isArray(c.genres)) return c.genres.filter(Boolean); // legacy manifests
+  return [];
+}
+
+// ----- persistent response cache (stale-while-revalidate) -----
+// Catalog/manifest/meta responses are cached in localStorage with a TTL so
+// revisits render instantly; a background refresh keeps them from going stale.
+const CACHE_PREFIX = "helio:cache:";
+function cacheGet(key, maxAgeMs) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const { t, v } = JSON.parse(raw);
+    return Date.now() - t > maxAgeMs ? null : v;
+  } catch (_) { return null; }
+}
+function cacheSet(key, v) {
+  const payload = JSON.stringify({ t: Date.now(), v });
+  try { localStorage.setItem(CACHE_PREFIX + key, payload); }
+  catch (_) {
+    prunePersistentCache();
+    try { localStorage.setItem(CACHE_PREFIX + key, payload); } catch (_) { /* give up */ }
+  }
+}
+function prunePersistentCache() { // drop the older half when quota bites
+  try {
+    const entries = Object.keys(localStorage)
+      .filter((k) => k.startsWith(CACHE_PREFIX))
+      .map((k) => { try { return { k, t: (JSON.parse(localStorage.getItem(k)) || {}).t || 0 }; } catch (_) { return { k, t: 0 }; } })
+      .sort((a, b) => a.t - b.t);
+    entries.slice(0, Math.ceil(entries.length / 2)).forEach(({ k }) => localStorage.removeItem(k));
+  } catch (_) {}
+}
+const CATALOG_TTL = 6 * 3600e3;
+const MANIFEST_TTL = 24 * 3600e3;
+const META_TTL = 24 * 3600e3;
+const refreshing = new Set(); // in-flight background refreshes, keyed by URL
+
 async function getJson(url, { timeout = 0 } = {}) {
   const ctrl = timeout && typeof AbortController !== "undefined" ? new AbortController() : null;
   const tid = ctrl ? setTimeout(() => ctrl.abort(), timeout) : null;
@@ -64,9 +108,12 @@ export const Addons = {
   async manifest(base) {
     const b = canonicalize(base);
     if (manifestCache.has(b)) return manifestCache.get(b);
+    const cached = cacheGet("man:" + b, MANIFEST_TTL);
+    if (cached) { manifestCache.set(b, cached); return cached; }
     const m = await getJson(`${b}/manifest.json`);
     const parsed = this._parseManifest(m, b);
     manifestCache.set(b, parsed);
+    cacheSet("man:" + b, parsed);
     return parsed;
   },
 
@@ -81,6 +128,7 @@ export const Addons = {
         name: c.name || c.id,
         type: c.type,
         searchable: catalogSupportsSearch(c),
+        genres: catalogGenres(c), // options for the `genre` extra ([] = unsupported)
       })),
       resources: (m.resources || []).map((r) =>
         typeof r === "string"
@@ -96,10 +144,13 @@ export const Addons = {
     );
   },
 
-  async catalog(base, type, id, skip = 0) {
+  async catalog(base, type, id, skip = 0, extra = {}) {
     const b = canonicalize(base);
-    const url = skip > 0
-      ? `${b}/catalog/${type}/${id}/skip=${skip}.json`
+    const parts = [];
+    if (extra.genre) parts.push(`genre=${enc(extra.genre)}`);
+    if (skip > 0) parts.push(`skip=${skip}`);
+    const url = parts.length
+      ? `${b}/catalog/${type}/${id}/${parts.join("&")}.json`
       : `${b}/catalog/${type}/${id}.json`;
     return this._fetchCatalog(url, type);
   },
@@ -110,9 +161,26 @@ export const Addons = {
     return this._fetchCatalog(url, type);
   },
 
+  // Stale-while-revalidate: serve the cached list instantly and refresh it in
+  // the background, so Home never feels like a cold load twice.
   async _fetchCatalog(url, type) {
+    const cached = cacheGet("cat:" + url, CATALOG_TTL);
+    if (cached) {
+      this._refreshCatalog(url, type);
+      return cached;
+    }
+    return this._fetchCatalogNet(url, type);
+  },
+
+  _refreshCatalog(url, type) {
+    if (refreshing.has(url)) return;
+    refreshing.add(url);
+    this._fetchCatalogNet(url, type).catch(() => {}).finally(() => refreshing.delete(url));
+  },
+
+  async _fetchCatalogNet(url, type) {
     const data = await getJson(url);
-    return (data.metas || []).map((m) => ({
+    const metas = (data.metas || []).map((m) => ({
       id: m.id,
       type: m.type || type,
       name: m.name || "Untitled",
@@ -120,7 +188,10 @@ export const Addons = {
       background: m.background || null, // wide art, used by the home hero
       description: m.description || "",
       releaseInfo: m.releaseInfo || "",
+      genres: Array.isArray(m.genres) ? m.genres : [], // for hero personalization
     }));
+    cacheSet("cat:" + url, metas);
+    return metas;
   },
 
   // Search every installed addon's searchable catalogs (one per type per addon),
@@ -156,9 +227,12 @@ export const Addons = {
 
   async meta(base, type, id) {
     const b = canonicalize(base);
+    const key = `meta:${b}:${type}:${id}`;
+    const cached = cacheGet(key, META_TTL);
+    if (cached) return cached;
     const data = await getJson(`${b}/meta/${type}/${enc(id)}.json`);
     const m = data.meta || {};
-    return {
+    const out = {
       id: m.id || id,
       type: m.type || type,
       name: m.name || "Untitled",
@@ -169,6 +243,8 @@ export const Addons = {
       genres: Array.isArray(m.genres) ? m.genres : [],
       videos: Array.isArray(m.videos) ? m.videos : [],
     };
+    cacheSet(key, out);
+    return out;
   },
 
   async streamsFromAddon(base, type, videoId) {

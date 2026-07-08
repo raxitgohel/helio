@@ -13,6 +13,10 @@ export function makeCard(meta, onSelect) {
     img.decoding = "async"; // keep decode off the main thread (mobile Safari)
     img.alt = "";
     img.src = meta.poster;
+    // Fade the poster in once decoded (CSS transitions img.poster.loaded).
+    const markLoaded = () => img.classList.add("loaded");
+    if (img.complete && img.naturalWidth) markLoaded();
+    else img.addEventListener("load", markLoaded, { once: true });
     // Broken/blocked poster URL → swap in the empty placeholder instead of a
     // browser broken-image glyph.
     img.onerror = () => {

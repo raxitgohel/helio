@@ -10,7 +10,7 @@ import { Addons } from "../addons.js";
 import { Platform } from "../platform.js";
 import { PlayerScreen } from "../player.js";
 import { icon } from "../ui/icons.js";
-import { parseLanguages } from "../core/streamLang.js";
+import { parseLanguages, parseContainer } from "../core/streamLang.js";
 
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -45,11 +45,19 @@ function isLikelyMobile() {
   } catch (_) { return false; }
 }
 
-const enrich = (s, addonName) => ({
-  ...s, addonName,
-  quality: parseQuality(s), size: parseSize(s), hdr: hasHDR(s), playable: isPlayable(s),
-  langs: parseLanguages(s),
-});
+// Containers WebKit (iPhone/iPad/Safari) cannot open, though Chrome can.
+const APPLE_UNPLAYABLE = new Set(["MKV", "AVI"]);
+
+const enrich = (s, addonName) => {
+  const container = parseContainer(s);
+  return {
+    ...s, addonName,
+    quality: parseQuality(s), size: parseSize(s), hdr: hasHDR(s), playable: isPlayable(s),
+    langs: parseLanguages(s),
+    container,
+    compatible: !(Platform.isAppleWebKit() && container && APPLE_UNPLAYABLE.has(container)),
+  };
+};
 
 export async function StreamsScreen({ type, videoId, title, poster, episodes, episodeIndex }) {
   // If this is a series episode with a following one, build an "up next" the
@@ -81,7 +89,7 @@ export async function StreamsScreen({ type, videoId, title, poster, episodes, ep
   function streamRow(item, clickable) {
     const row = document.createElement(clickable ? "button" : "div");
     row.className = "stream-row" + (clickable ? " focusable" : " is-disabled");
-    const meta = [item.addonName, item.size, item.hdr ? "HDR" : null].filter(Boolean).join(" · ");
+    const meta = [item.addonName, item.container, item.size, item.hdr ? "HDR" : null].filter(Boolean).join(" · ");
     const langChips = (item.langs && item.langs.length)
       ? `<span class="stream-langs">${item.langs.map((l) => `<span class="lang-chip">${escapeHtml(l)}</span>`).join("")}</span>`
       : "";
@@ -92,6 +100,7 @@ export async function StreamsScreen({ type, videoId, title, poster, episodes, ep
         <span class="stream-sub">${escapeHtml(meta)}</span>
       </span>
       ${langChips}
+      ${clickable && !item.compatible ? '<span class="stream-tag warn">may not play here</span>' : ""}
       ${clickable ? "" : '<span class="stream-tag">needs debrid</span>'}`;
     if (clickable) row.onclick = () => play(item);
     return row;
@@ -106,15 +115,18 @@ export async function StreamsScreen({ type, videoId, title, poster, episodes, ep
     const playable = items.filter((i) => i.playable).sort((a, b) => (b.quality || 0) - (a.quality || 0));
     const torrents = items.filter((i) => !i.playable).sort((a, b) => (b.quality || 0) - (a.quality || 0));
 
-    // Recommendation: best playable quality that fits the recommended cap; else the
-    // lowest known-quality playable (avoid over-spec), else just the first.
+    // Recommendation: only device-compatible containers (no MKV on iPhone), best
+    // quality that fits the recommended cap; else the lowest known-quality
+    // playable (avoid over-spec), else just the first.
     let rec = null;
-    if (playable.length) {
-      const fit = playable.filter((i) => i.quality != null && i.quality <= recCap);
+    const candidates = playable.filter((i) => i.compatible);
+    const recPool = candidates.length ? candidates : playable;
+    if (recPool.length) {
+      const fit = recPool.filter((i) => i.quality != null && i.quality <= recCap);
       if (fit.length) rec = fit[0];
       else {
-        const known = playable.filter((i) => i.quality != null).sort((a, b) => a.quality - b.quality);
-        rec = known[0] || playable[0];
+        const known = recPool.filter((i) => i.quality != null).sort((a, b) => a.quality - b.quality);
+        rec = known[0] || recPool[0];
       }
     }
 

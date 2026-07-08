@@ -41,11 +41,13 @@ export async function HomeScreen() {
     <div id="hero" class="hero"></div>
     <div id="personal" class="board personal"></div>
     <div id="filters" class="filters"></div>
+    <div id="genres" class="genre-pills"></div>
     <div id="board" class="board"></div>
     <div id="status" class="status"></div>
   `;
 
   const hero = el.querySelector("#hero");
+  const genres = el.querySelector("#genres");
   const personal = el.querySelector("#personal");
   const filters = el.querySelector("#filters");
   const board = el.querySelector("#board");
@@ -53,6 +55,7 @@ export async function HomeScreen() {
 
   let catalogEntries = []; // [{ addon, catalog }]
   let activeType = "all";
+  let activeGenre = null;
   let lastSig = null; // installed-addon-list signature, to refresh on return
 
   const setStatus = (t) => { status.textContent = t || ""; };
@@ -103,17 +106,48 @@ export async function HomeScreen() {
     return { section, row };
   }
 
-  // ----- hero billboard: first item of the first catalog with wide art -----
-  async function renderHero() {
-    hero.innerHTML = "";
-    const entry = catalogEntries[0];
-    if (!entry) return;
-    try {
-      const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
-      const item = metas.find((x) => x.background || x.poster);
-      if (!item) return;
-      const type = item.type || entry.catalog.type;
-      const art = (item.background || item.poster).replace(/'/g, "%27");
+  // ----- hero billboard: rotating picks, biased toward the user's taste -----
+  let heroItems = [];
+  let heroIndex = 0;
+  let heroTimer = 0;
+
+  async function buildHeroPool() {
+    const entries = catalogEntries.slice(0, 3);
+    const lists = await Promise.all(entries.map((e) =>
+      Addons.catalog(e.addon.baseUrl, e.catalog.type, e.catalog.id).catch(() => [])));
+    const pool = [];
+    const seen = new Set();
+    lists.forEach((metas, i) => metas.slice(0, 12).forEach((m) => {
+      if (!(m.background || m.poster) || seen.has(m.id)) return;
+      seen.add(m.id);
+      pool.push({ item: m, entry: entries[i] });
+    }));
+    // Taste profile: genres of pool items the user has watched or listed boost
+    // similar titles; already-seen titles are demoted; a random nudge keeps the
+    // billboard fresh between visits.
+    const libIds = new Set([
+      ...Watchlist.list().map((e) => e.id),
+      ...WatchProgress.list(30).map((e) => e.id),
+    ]);
+    const affinity = {};
+    pool.forEach(({ item }) => {
+      if (libIds.has(item.id)) (item.genres || []).forEach((g) => { affinity[g] = (affinity[g] || 0) + 1; });
+    });
+    const score = ({ item }) =>
+      (item.genres || []).reduce((s, g) => s + (affinity[g] || 0), 0)
+      - (libIds.has(item.id) ? 2 : 0)
+      + Math.random() * 1.5;
+    return pool.sort((a, b) => score(b) - score(a)).slice(0, 5);
+  }
+
+  function renderHeroItem(instant = false) {
+    const pick = heroItems[heroIndex];
+    if (!pick) { hero.innerHTML = ""; return; }
+    const { item, entry } = pick;
+    const type = item.type || entry.catalog.type;
+    const art = (item.background || item.poster).replace(/'/g, "%27");
+
+    const paint = () => {
       hero.innerHTML = `
         <div class="hero-bg" style="background-image:url('${art}')"></div>
         <div class="hero-scrim"></div>
@@ -121,7 +155,8 @@ export async function HomeScreen() {
           <h2 class="hero-title"></h2>
           <p class="hero-desc"></p>
           <div class="hero-actions"></div>
-        </div>`;
+        </div>
+        <div class="hero-dots"></div>`;
       hero.querySelector(".hero-title").textContent = item.name;
       hero.querySelector(".hero-desc").textContent = item.description || item.releaseInfo || "";
       const actions = hero.querySelector(".hero-actions");
@@ -136,7 +171,43 @@ export async function HomeScreen() {
       more.innerHTML = `${icon("info", 18)}<span>More info</span>`;
       more.onclick = () => Router.push(DetailScreen, { addon: entry.addon, type, id: item.id, name: item.name });
       actions.append(primary, more);
-    } catch (_) { /* hero is optional; rows still render */ }
+      const dots = hero.querySelector(".hero-dots");
+      heroItems.forEach((_, i) => {
+        const d = document.createElement("button");
+        d.className = "hero-dot" + (i === heroIndex ? " active" : "");
+        d.type = "button";
+        d.tabIndex = -1;
+        d.setAttribute("aria-label", `Featured ${i + 1}`);
+        d.onclick = () => { heroIndex = i; renderHeroItem(); restartHeroRotation(); };
+        dots.appendChild(d);
+      });
+      hero.classList.remove("hero-swap");
+    };
+
+    if (instant) { paint(); return; }
+    hero.classList.add("hero-swap"); // crossfade: fade out, repaint, fade in
+    setTimeout(paint, 220);
+  }
+
+  function restartHeroRotation() {
+    clearInterval(heroTimer);
+    if (heroItems.length > 1) {
+      heroTimer = setInterval(() => {
+        if (!document.contains(hero)) return; // home not on screen; skip the tick
+        heroIndex = (heroIndex + 1) % heroItems.length;
+        renderHeroItem();
+      }, 8000);
+    }
+  }
+
+  async function renderHero() {
+    try {
+      heroItems = await buildHeroPool();
+    } catch (_) { heroItems = []; }
+    heroIndex = 0;
+    hero.innerHTML = "";
+    if (heroItems.length) renderHeroItem(true);
+    restartHeroRotation();
   }
 
   function renderPersonal() {
@@ -188,7 +259,9 @@ export async function HomeScreen() {
     for (let i = 0; i < SKELETON_COUNT; i++) row.appendChild(makeSkeleton());
 
     try {
-      const metas = await Addons.catalog(entry.addon.baseUrl, entry.catalog.type, entry.catalog.id);
+      const metas = await Addons.catalog(
+        entry.addon.baseUrl, entry.catalog.type, entry.catalog.id, 0,
+        activeGenre ? { genre: activeGenre } : {});
       const slice = metas.slice(0, previewCount());
       if (slice.length === 0) { section.remove(); return; }
       row.innerHTML = "";
@@ -200,8 +273,11 @@ export async function HomeScreen() {
 
   function renderBoard() {
     board.innerHTML = "";
-    const shown = catalogEntries.filter((e) => activeType === "all" || e.catalog.type === activeType);
+    const shown = catalogEntries
+      .filter((e) => activeType === "all" || e.catalog.type === activeType)
+      .filter((e) => !activeGenre || (e.catalog.genres || []).includes(activeGenre));
     shown.forEach((entry) => renderSection(entry));
+    if (!shown.length && activeGenre) setStatus(`No catalogs support the "${activeGenre}" genre.`);
   }
 
   function renderFilters() {
@@ -211,9 +287,38 @@ export async function HomeScreen() {
       const btn = document.createElement("button");
       btn.className = "focusable filter" + (f.id === activeType ? " active" : "");
       btn.textContent = f.label;
-      btn.onclick = () => { activeType = f.id; renderFilters(); renderBoard(); };
+      btn.onclick = () => {
+        activeType = f.id;
+        if (activeGenre && !availableGenres().includes(activeGenre)) activeGenre = null;
+        renderFilters(); renderGenres(); renderBoard();
+      };
       filters.appendChild(btn);
     });
+  }
+
+  // ----- genre pills (catalogs advertising the `genre` extra) -----
+  function availableGenres() {
+    const set = new Set();
+    catalogEntries
+      .filter((e) => activeType === "all" || e.catalog.type === activeType)
+      .forEach((e) => (e.catalog.genres || []).forEach((g) => set.add(g)));
+    return [...set].slice(0, 24);
+  }
+
+  function renderGenres() {
+    genres.innerHTML = "";
+    const opts = availableGenres();
+    if (!opts.length) return;
+    const mk = (label, value) => {
+      const b = document.createElement("button");
+      b.className = "focusable genre-pill" + (value === activeGenre ? " active" : "");
+      b.type = "button";
+      b.textContent = label;
+      b.onclick = () => { activeGenre = value; renderGenres(); renderBoard(); };
+      genres.appendChild(b);
+    };
+    mk("All genres", null);
+    opts.forEach((g) => mk(g, g));
   }
 
   async function loadAddons() {
@@ -241,11 +346,33 @@ export async function HomeScreen() {
     setStatus("");
     renderHero();
     renderFilters();
+    renderGenres();
     renderBoard();
   }
 
   el.querySelector("#search-btn").onclick = () => Router.push(SearchScreen);
   el.querySelector("#settings-btn").onclick = () => Router.push(SettingsScreen);
+
+  // Sticky top bar auto-hide: stays pinned while scrolling, fades out after 3s
+  // of no interaction, and wakes on any touch/scroll/mouse/key input.
+  const topbar = el.querySelector(".topbar");
+  let tbTimer = 0;
+  let lastInputType = "";
+  const wakeTopbar = (ev) => {
+    if (!document.contains(el)) return; // home not mounted — ignore global events
+    if (ev && ev.type) lastInputType = ev.type;
+    topbar.classList.remove("tb-hidden");
+    clearTimeout(tbTimer);
+    tbTimer = setTimeout(() => {
+      // Keep visible only for D-pad users parked on it (last input was a key);
+      // the default initial focus must not pin the bar open forever.
+      if (lastInputType === "keydown" && topbar.querySelector(".focused")) return;
+      topbar.classList.add("tb-hidden");
+    }, 3000);
+  };
+  ["scroll", "wheel", "touchstart", "mousemove", "keydown", "click"].forEach((ev) =>
+    window.addEventListener(ev, wakeTopbar, { passive: true }));
+  wakeTopbar();
 
   return {
     el,

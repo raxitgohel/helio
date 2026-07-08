@@ -38,6 +38,19 @@ const NAME_LANG = [
   [/\bkannada\b/i, "KN"],
 ];
 
+// Container hint from the stream text/URL. Matters for compatibility: desktop
+// Chrome plays MKV, but Safari/iOS cannot open the MKV container at all —
+// the classic "works on PC, playback error on iPhone".
+export function parseContainer(stream) {
+  const t = `${stream.title || ""} ${stream.name || ""} ${stream.url || ""}`.toLowerCase();
+  if (/\.m3u8(\?|#|$)|\bhls\b/.test(t)) return "HLS";
+  if (/\bmkv\b|\.mkv(\?|#|$)/.test(t)) return "MKV";
+  if (/\bavi\b|\.avi(\?|#|$)/.test(t)) return "AVI";
+  if (/\bmp4\b|\bm4v\b|\.mp4(\?|#|$)/.test(t)) return "MP4";
+  if (/\bwebm\b|\.webm(\?|#|$)/.test(t)) return "WEBM";
+  return null;
+}
+
 export function parseLanguages(stream) {
   const text = `${stream.title || ""} ${stream.name || ""} ${stream.description || ""}`;
   const langs = new Set();

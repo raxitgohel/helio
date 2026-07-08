@@ -138,8 +138,19 @@ export function PlayerScreen({ stream, type, videoId, title, poster, upNext } = 
     location.protocol === "https:" && typeof url === "string" && /^http:\/\//i.test(url);
   function showPlaybackError() {
     hint.classList.remove("hidden");
-    hint.textContent = isHttpOnHttps()
-      ? "This stream is HTTP and the browser blocked it on the secure (HTTPS) site. Open Helio on the TV, or pick an HTTPS stream."
+    if (isHttpOnHttps()) {
+      hint.textContent = "This stream is HTTP and the browser blocked it on the secure (HTTPS) site. Open Helio on the TV, or pick an HTTPS stream.";
+      return;
+    }
+    // iPhone/iPad/Safari can't open MKV/AVI containers that Chrome plays —
+    // the most common "works on PC, fails on phone" cause.
+    const text = `${(stream && (stream.title || stream.name)) || ""} ${url || ""}`;
+    if (Platform.isAppleWebKit() && /\bmkv\b|\.mkv\b|\bavi\b|\.avi\b/i.test(text)) {
+      hint.textContent = "This stream's format (MKV/AVI) isn't supported on this device. Go back and pick one without the “may not play here” tag — MP4 or HLS work.";
+      return;
+    }
+    hint.textContent = Platform.isAppleWebKit()
+      ? "This device couldn't play the stream (likely an unsupported format) — go back and try another source, ideally MP4 or HLS."
       : "Playback error — press Back to exit.";
   }
 

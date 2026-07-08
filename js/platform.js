@@ -49,6 +49,16 @@ export const Platform = {
     };
   },
 
+  // Apple WebKit (iPhone/iPad/Safari): every iOS browser is WebKit, which
+  // cannot play MKV/AVI containers that Chrome handles. Used to steer stream
+  // recommendations and explain playback errors.
+  isAppleWebKit() {
+    const ua = navigator.userAgent || "";
+    if (/iPhone|iPad|iPod/i.test(ua)) return true;
+    if (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1) return true; // iPadOS
+    return /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua); // desktop Safari
+  },
+
   // Best-guess max video height (lines) to recommend, from the display's native
   // pixel long-edge (CSS px × devicePixelRatio). Tuned so 4K-capable / high-DPI
   // devices (modern phones, 4K panels) map to 2160, while a genuine 1080p laptop

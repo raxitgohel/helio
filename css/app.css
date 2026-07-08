@@ -8,6 +8,7 @@
   --radius: 18px;
   --radius-lg: 22px;
   --gap: 20px;
+  --ease: cubic-bezier(.22, .61, .36, 1); /* one smooth curve everywhere */
   --font-display: 'Bricolage Grotesque', 'Segoe UI', sans-serif;
   --font-body: 'Hanken Grotesk', 'Segoe UI', Roboto, Arial, sans-serif;
   --accent-ink: #fff;        /* text on the colored accent */
@@ -86,6 +87,13 @@ html, body {
   padding: clamp(20px, 3vh, 32px) clamp(16px, 4vw, 56px) clamp(32px, 5vh, 56px);
 }
 
+/* Gentle enter animation for every screen (the player fades via its own UI). */
+.screen:not(.player-screen) { animation: screenIn .32s var(--ease); }
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* In-app back navigation (injected by the router on non-root screens). */
 .nav-back {
   position: absolute; top: clamp(14px, 2.4vh, 22px); left: clamp(14px, 4vw, 56px);
@@ -101,9 +109,11 @@ html, body {
 /* ---------- Focus model ---------- */
 .focusable {
   outline: none;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, filter .12s ease;
+  transition: transform .24s var(--ease), box-shadow .24s var(--ease),
+              background .24s var(--ease), filter .24s var(--ease), opacity .24s var(--ease);
   cursor: pointer;
 }
+.btn:active, .kb-key:active, .filter:active, .genre-pill:active { transform: scale(.96); }
 .focusable.focused {
   box-shadow: 0 0 0 3px var(--accent), var(--shadow);
   transform: scale(1.04);
@@ -112,11 +122,20 @@ html, body {
 
 /* Mouse affordances on the web (no pointer on TV → no effect). */
 @media (hover: hover) {
-  .card:hover { transform: translateY(-3px); }
+  .card:hover { transform: translateY(-4px); }
   .card:hover .poster { box-shadow: var(--shadow); }
   .stream-row:hover, .ep:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
   .btn:hover, .filter:hover, .tab:hover, .season-tab:hover, .see-all:hover,
-  .kb-key:hover, .chip-remove:hover, .theme-opt:hover { filter: brightness(1.06); }
+  .kb-key:hover, .chip-remove:hover, .theme-opt:hover, .genre-pill:hover { filter: brightness(1.06); }
+}
+
+/* Respect users (and TVs) that prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 /* ---------- Loading skeletons ----------
@@ -152,6 +171,23 @@ html, body {
 
 /* ---------- Top bar ---------- */
 .topbar { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+
+/* Home: the bar stays pinned while scrolling (frosted pill) and auto-hides
+   after 3s idle; any interaction brings it back. */
+.home-screen .topbar {
+  position: sticky; top: 10px; z-index: 30;
+  background: var(--bg-elev);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 10px 18px; box-shadow: var(--shadow);
+  transition: transform .45s var(--ease), opacity .45s var(--ease);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .home-screen .topbar {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(16px) saturate(1.15);
+  }
+}
+.topbar.tb-hidden { transform: translateY(-160%); opacity: 0; pointer-events: none; }
 .logo {
   display: flex; align-items: center; gap: 11px; margin: 0;
   font-family: var(--font-display); font-weight: 800; font-size: 30px; letter-spacing: -.02em;
@@ -197,6 +233,9 @@ html, body {
   border-radius: var(--radius-lg); background: var(--bg-elev-2); box-shadow: var(--shadow);
 }
 .poster-empty { display: flex; }
+/* Posters fade in as they decode instead of popping. */
+img.poster { opacity: 0; transition: opacity .45s var(--ease); }
+img.poster.loaded { opacity: 1; }
 .card-title { font-family: var(--font-display); font-weight: 600; font-size: 15.5px; color: var(--text); line-height: 1.25; max-height: 2.5em; overflow: hidden; }
 
 .status { margin-top: 18px; color: var(--text-dim); font-size: 16px; }
@@ -206,8 +245,16 @@ html, body {
   position: relative; border-radius: var(--radius-lg); overflow: hidden;
   min-height: clamp(240px, 44vh, 460px); display: flex; align-items: flex-end;
   margin-bottom: clamp(20px, 3vh, 32px); box-shadow: var(--shadow);
+  transition: opacity .3s var(--ease);
 }
 .hero:empty { display: none; }
+.hero.hero-swap { opacity: 0; } /* crossfade while the next pick paints */
+.hero-dots { position: absolute; right: 18px; bottom: 16px; display: flex; gap: 7px; z-index: 2; }
+.hero-dot {
+  width: 9px; height: 9px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  background: rgba(255,255,255,.4); transition: background .3s var(--ease), transform .3s var(--ease);
+}
+.hero-dot.active { background: #fff; transform: scale(1.25); }
 .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 20%; }
 .hero-scrim {
   position: absolute; inset: 0;
@@ -228,6 +275,20 @@ html, body {
 .hero-actions .btn { box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .hero-more { background: rgba(255,255,255,.16); color: #fff; border-color: transparent; }
 
+/* ---------- Genre pills ---------- */
+.genre-pills {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  margin: -10px 0 22px; padding: 2px;
+}
+.genre-pills::-webkit-scrollbar { display: none; }
+.genre-pills:empty { display: none; }
+.genre-pill {
+  flex: 0 0 auto; background: var(--bg-elev); color: var(--text-dim);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.genre-pill.active { background: var(--text); color: var(--bg); border-color: transparent; }
+
 /* ---------- Horizontal rows (Netflix-style) ---------- */
 .row-wrap { position: relative; }
 .hrow {
@@ -243,7 +304,7 @@ html, body {
   position: absolute; top: 32%; width: 42px; height: 42px; border-radius: 50%;
   border: 1px solid var(--line); background: var(--bg-elev); color: var(--text);
   box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; opacity: 0; transition: opacity .15s ease; z-index: 3;
+  cursor: pointer; opacity: 0; transition: opacity .3s var(--ease); z-index: 3;
 }
 .row-nav-left { left: -10px; }
 .row-nav-right { right: -10px; }
@@ -325,7 +386,8 @@ html, body {
   background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 16px 22px; font-size: 17px; text-align: left; cursor: pointer;
 }
-.stream-tag { font-size: 12px; color: var(--text-faint); background: var(--bg-elev-2); border-radius: 999px; padding: 4px 10px; }
+.stream-tag { font-size: 12px; color: var(--text-faint); background: var(--bg-elev-2); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.stream-tag.warn { color: var(--danger); border: 1px solid var(--danger); background: transparent; }
 
 /* ---------- Settings ---------- */
 .settings-section { margin-bottom: 36px; max-width: 860px; }
